@@ -156,6 +156,7 @@ def _clean_json(text: str) -> str:
         text = text[start:end+1]
     text = text.strip()
     text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', text)
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
     return text
 
 
@@ -165,7 +166,7 @@ async def _generate_json(runner: InMemoryRunner, prompt: str, retry_hint: str = 
         if not raw:
             raise ValueError("الوكيل لم يُرجع أي مخرجات")
         try:
-            return json.loads(_clean_json(raw))
+            return json.loads(_clean_json(raw), strict=False)
         except json.JSONDecodeError as e:
             if attempt == 0 and retry_hint:
                 prompt += "\n\n" + retry_hint
