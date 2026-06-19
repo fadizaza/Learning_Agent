@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sys
 
 if sys.platform == 'win32':
@@ -153,7 +154,9 @@ def _clean_json(text: str) -> str:
     end = text.rfind("}")
     if start != -1 and end != -1 and end > start:
         text = text[start:end+1]
-    return text.strip()
+    text = text.strip()
+    text = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', text)
+    return text
 
 
 async def _generate_json(runner: InMemoryRunner, prompt: str, retry_hint: str = "") -> dict:
