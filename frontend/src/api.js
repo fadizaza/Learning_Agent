@@ -12,10 +12,10 @@ async function api(path, options = {}) {
   return res.json();
 }
 
-export function startSession(grade, subject, topic, level, goals = '', language = 'ar') {
+export function startSession(grade, subject, topic, level, goals = '', language = 'ar', curriculum = '') {
   return api('/api/sessions', {
     method: 'POST',
-    body: JSON.stringify({ grade, subject, topic, level, goals, language }),
+    body: JSON.stringify({ grade, subject, topic, level, goals, language, curriculum }),
   });
 }
 

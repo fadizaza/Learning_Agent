@@ -24,7 +24,8 @@ config = types.GenerateContentConfig(temperature=0.3, max_output_tokens=4096)
 
 PLANNER_INSTRUCTION_AR = (
     "أنت خبير في تصميم المناهج التعليمية. بناءً على الصف والمادة والموضوع ومستوى المتعلم "
-    "(مبتدئ، متوسط، متقدم) وأهدافه، قم بإنشاء منهج تعليمي منظم.\n\n"
+    "(مبتدئ، متوسط، متقدم) والمنهج التعليمي وأهدافه، قم بإنشاء منهج تعليمي منظم.\n\n"
+    "إذا تم تحديد منهج تعليمي محدد، يجب أن تكون الوحدات والمواضيع متوافقة مع معاييره ونواتج تعلمه.\n\n"
     "ارجع JSON صالحًا فقط بهذا الهيكل تمامًا، بدون markdown أو code fences:\n"
     "{\n"
     '  "topic": "<الموضوع>",\n'
@@ -42,7 +43,9 @@ PLANNER_INSTRUCTION_AR = (
 
 PLANNER_INSTRUCTION_EN = (
     "You are an expert in designing educational curricula. Based on the grade, subject, topic, "
-    "learner level (beginner, intermediate, advanced), and their goals, create an organized educational syllabus.\n\n"
+    "learner level (beginner, intermediate, advanced), the curriculum framework, and their goals, "
+    "create an organized educational syllabus.\n\n"
+    "If a specific curriculum is provided, the modules and topics must align with its standards and learning outcomes.\n\n"
     "Return only valid JSON with this exact structure, no markdown or code fences:\n"
     "{\n"
     '  "topic": "<topic>",\n'
@@ -59,8 +62,9 @@ PLANNER_INSTRUCTION_EN = (
 )
 
 CONTENT_INSTRUCTION_AR = (
-    "أنت معلم خبير. بناءً على الصف والمادة والموضوع ومستوى المتعلم وعنوان الوحدة وأهدافه، "
+    "أنت معلم خبير. بناءً على الصف والمادة والموضوع ومستوى المتعلم وعنوان الوحدة والمنهج التعليمي وأهدافه، "
     "قم بإنشاء محتوى درس جذاب.\n\n"
+    "إذا تم تحديد منهج تعليمي محدد، يجب أن يكون المحتوى متوافقًا مع معاييره ونواتج تعلمه وأسلوب عرضه.\n\n"
     "ارجع JSON صالحًا فقط بهذا الهيكل تمامًا، بدون markdown أو code fences:\n"
     "{\n"
     '  "title": "<عنوان الوحدة>",\n'
@@ -79,8 +83,9 @@ CONTENT_INSTRUCTION_AR = (
 )
 
 CONTENT_INSTRUCTION_EN = (
-    "You are an expert teacher. Based on the grade, subject, topic, learner level, module title, and their goals, "
-    "create engaging lesson content.\n\n"
+    "You are an expert teacher. Based on the grade, subject, topic, learner level, module title, "
+    "the curriculum framework, and their goals, create engaging lesson content.\n\n"
+    "If a specific curriculum is provided, the content must align with its standards, learning outcomes, and presentation style.\n\n"
     "Return only valid JSON with this exact structure, no markdown or code fences:\n"
     "{\n"
     '  "title": "<module title>",\n'
@@ -100,8 +105,9 @@ CONTENT_INSTRUCTION_EN = (
 )
 
 QUIZ_INSTRUCTION_AR = (
-    "أنت منشئ اختبارات. بناءً على الموضوع والمستوى ومحتوى الدرس، "
+    "أنت منشئ اختبارات. بناءً على الموضوع والمستوى والمنهج التعليمي ومحتوى الدرس، "
     "قم بإنشاء أسئلة اختيار من متعدد لاختبار الفهم.\n\n"
+    "إذا تم تحديد منهج تعليمي محدد، يجب أن تكون الأسئلة بأسلوب يتوافق مع أساليب التقييم في هذا المنهاج.\n\n"
     "ارجع JSON صالحًا فقط بهذا الهيكل تمامًا، بدون markdown أو code fences:\n"
     "{\n"
     '  "questions": [\n'
@@ -119,8 +125,9 @@ QUIZ_INSTRUCTION_AR = (
 )
 
 QUIZ_INSTRUCTION_EN = (
-    "You are a quiz creator. Based on the topic, level, and lesson content, "
+    "You are a quiz creator. Based on the topic, level, curriculum framework, and lesson content, "
     "create multiple-choice questions to test understanding.\n\n"
+    "If a specific curriculum is provided, the questions should match its assessment style and command words.\n\n"
     "Return only valid JSON with this exact structure, no markdown or code fences:\n"
     "{\n"
     '  "questions": [\n'
@@ -138,8 +145,9 @@ QUIZ_INSTRUCTION_EN = (
 )
 
 EVAL_INSTRUCTION_AR = (
-    "أنت مقيم تعليمي. بناءً على أسئلة الاختبار وإجابات المستخدم والإجابات الصحيحة، "
+    "أنت مقيم تعليمي. بناءً على أسئلة الاختبار وإجابات المستخدم والإجابات الصحيحة والمنهج التعليمي، "
     "قم بتقييم الأداء وتقديم ملاحظات بناءة.\n\n"
+    "إذا تم تحديد منهج تعليمي محدد، يجب أن تكون الملاحظات والتوصيات متوافقة مع أهداف التعلم في هذا المنهاج.\n\n"
     "ارجع JSON صالحًا فقط بهذا الهيكل تمامًا، بدون markdown أو code fences:\n"
     "{\n"
     '  "score": <رقم بين 0 و 100>,\n'
@@ -154,8 +162,9 @@ EVAL_INSTRUCTION_AR = (
 )
 
 EVAL_INSTRUCTION_EN = (
-    "You are an educational evaluator. Based on the quiz questions, user answers, and correct answers, "
-    "evaluate performance and provide constructive feedback.\n\n"
+    "You are an educational evaluator. Based on the quiz questions, user answers, correct answers, "
+    "and the curriculum framework, evaluate performance and provide constructive feedback.\n\n"
+    "If a specific curriculum is provided, the feedback and recommendations should align with its learning outcomes.\n\n"
     "Return only valid JSON with this exact structure, no markdown or code fences:\n"
     "{\n"
     '  "score": <number between 0 and 100>,\n'
@@ -166,6 +175,46 @@ EVAL_INSTRUCTION_EN = (
     '  "next_steps": "<recommendation for what to study next>"\n'
     "}\n\n"
     "Be encouraging but honest. Suggest specific areas for improvement. "
+    "All content must be in English."
+)
+
+VALIDATOR_INSTRUCTION_AR = (
+    "أنت محقق تعليمي. مهمتك التحقق مما إذا كان المحتوى المُنشأ متوافقًا مع المنهج التعليمي المحدد "
+    "والصف والمادة والموضوع.\n\n"
+    "ستتلقى المحتوى المُنشأ وبيانات المنهج. قيم التوافق وارجع JSON صالحًا فقط:\n"
+    "{\n"
+    '  "is_aligned": true أو false,\n'
+    '  "score": <رقم من 0 إلى 100 يمثل درجة التوافق>,\n'
+    '  "issues": ["<مشكلة 1>", "<مشكلة 2>"],\n'
+    '  "suggestions": ["<اقتراح 1>", "<اقتراح 2>"]\n'
+    "}\n\n"
+    "معايير التحقق:\n"
+    "1. هل الموضوع مناسب للصف المحدد؟\n"
+    "2. هل المستوى (مبتدئ/متوسط/متقدم) مناسب لمحتوى الوحدات؟\n"
+    "3. هل الترتيب منطقي من الأساسيات إلى المتقدم؟\n"
+    "4. هل الوحدات تغطي الموضوع بشكل شامل؟\n"
+    "5. هل المحتوى متوافق مع أسلوب المنهاج المحدد؟\n\n"
+    "إذا كان التوافق ≥ 70، ضع is_aligned = true. وإلا ضعه = false.\n"
+    "يجب أن يكون كل المحتوى باللغة العربية."
+)
+
+VALIDATOR_INSTRUCTION_EN = (
+    "You are an educational validator. Your task is to verify whether the generated content aligns with "
+    "the specified curriculum, grade, subject, and topic.\n\n"
+    "You will receive the generated content and curriculum data. Evaluate alignment and return only valid JSON:\n"
+    "{\n"
+    '  "is_aligned": true or false,\n'
+    '  "score": <number from 0 to 100 representing alignment score>,\n'
+    '  "issues": ["<issue 1>", "<issue 2>"],\n'
+    '  "suggestions": ["<suggestion 1>", "<suggestion 2>"]\n'
+    "}\n\n"
+    "Validation criteria:\n"
+    "1. Is the topic appropriate for the specified grade?\n"
+    "2. Is the level (beginner/intermediate/advanced) appropriate for the module content?\n"
+    "3. Is the progression logical from basics to advanced?\n"
+    "4. Do the modules cover the topic comprehensively?\n"
+    "5. Is the content style compatible with the specified curriculum?\n\n"
+    "If alignment score ≥ 70, set is_aligned = true. Otherwise set it to false.\n"
     "All content must be in English."
 )
 
@@ -233,6 +282,22 @@ evaluator_en = LlmAgent(
     generate_content_config=config,
 )
 
+validator_ar = LlmAgent(
+    name="ValidatorAgent_AR",
+    model=MODEL,
+    instruction=VALIDATOR_INSTRUCTION_AR,
+    output_key="validation_json",
+    generate_content_config=config,
+)
+
+validator_en = LlmAgent(
+    name="ValidatorAgent_EN",
+    model=MODEL,
+    instruction=VALIDATOR_INSTRUCTION_EN,
+    output_key="validation_json",
+    generate_content_config=config,
+)
+
 learning_pipeline_ar = SequentialAgent(
     name="LearningPipeline_AR",
     sub_agents=[planner_ar, content_creator_ar, quiz_generator_ar, evaluator_ar],
@@ -251,6 +316,8 @@ QUIZ_RUNNER_AR = InMemoryRunner(agent=quiz_generator_ar, app_name="learning_app"
 QUIZ_RUNNER_EN = InMemoryRunner(agent=quiz_generator_en, app_name="learning_app")
 EVAL_RUNNER_AR = InMemoryRunner(agent=evaluator_ar, app_name="learning_app")
 EVAL_RUNNER_EN = InMemoryRunner(agent=evaluator_en, app_name="learning_app")
+VALIDATOR_RUNNER_AR = InMemoryRunner(agent=validator_ar, app_name="learning_app")
+VALIDATOR_RUNNER_EN = InMemoryRunner(agent=validator_en, app_name="learning_app")
 PIPELINE_RUNNER_AR = InMemoryRunner(agent=learning_pipeline_ar, app_name="learning_pipeline")
 PIPELINE_RUNNER_EN = InMemoryRunner(agent=learning_pipeline_en, app_name="learning_pipeline")
 
@@ -308,28 +375,59 @@ def _retry_hint(lang: str):
     return "تأكد من أن المخرجات JSON صالح تمامًا بدون أي علامات تنصيص غير مهربة."
 
 
-async def generate_syllabus(grade: str, subject: str, topic: str, level: str, goals: str = "", language: str = "ar") -> dict:
+async def generate_syllabus(grade: str, subject: str, topic: str, level: str, goals: str = "", language: str = "ar", curriculum: str = "") -> dict:
     runner = _get_runner(language, PLANNER_RUNNER_AR, PLANNER_RUNNER_EN)
     if language == "en":
         prompt = f"Grade: {grade}\nSubject: {subject}\nTopic: {topic}\nLearner level: {level}\n"
+        if curriculum:
+            prompt += f"Curriculum: {curriculum}\n"
         if goals:
             prompt += f"Learner goals: {goals}\n"
         prompt += "\nCreate an educational syllabus."
     else:
         prompt = f"الصف: {grade}\nالمادة: {subject}\nالموضوع: {topic}\nمستوى المتعلم: {level}\n"
+        if curriculum:
+            prompt += f"المنهاج التعليمي: {curriculum}\n"
         if goals:
             prompt += f"أهداف المتعلم: {goals}\n"
         prompt += "\nقم بإنشاء منهج تعليمي."
-    return await _generate_json(runner, prompt, _retry_hint(language))
+    syllabus = await _generate_json(runner, prompt, _retry_hint(language))
+
+    if curriculum:
+        validation = await validate_content(syllabus, grade, subject, topic, level, curriculum, language)
+        if not validation.get("is_aligned", True):
+            issues = validation.get("issues", [])
+            suggestions = validation.get("suggestions", [])
+            if language == "en":
+                retry_prompt = prompt + (
+                    f"\n\nPrevious attempt was not aligned with the curriculum. Issues found:\n"
+                    + "\n".join(f"- {i}" for i in issues)
+                    + "\n\nSuggestions to improve:\n"
+                    + "\n".join(f"- {s}" for s in suggestions)
+                    + "\n\nPlease regenerate the syllabus addressing these issues."
+                )
+            else:
+                retry_prompt = prompt + (
+                    f"\n\nالمحاولة السابقة لم تتوافق مع المنهج. المشاكل المكتشفة:\n"
+                    + "\n".join(f"- {i}" for i in issues)
+                    + "\n\nاقتراحات للتحسين:\n"
+                    + "\n".join(f"- {s}" for s in suggestions)
+                    + "\n\nيرجى إعادة إنشاء المنهج مع معالجة هذه المشاكل."
+                )
+            syllabus = await _generate_json(runner, retry_prompt, _retry_hint(language))
+
+    return syllabus
 
 
-async def generate_lesson(grade: str, subject: str, topic: str, level: str, module_title: str, goals: str = "", language: str = "ar") -> dict:
+async def generate_lesson(grade: str, subject: str, topic: str, level: str, module_title: str, goals: str = "", language: str = "ar", curriculum: str = "") -> dict:
     runner = _get_runner(language, CONTENT_RUNNER_AR, CONTENT_RUNNER_EN)
     if language == "en":
         prompt = (
             f"Grade: {grade}\nSubject: {subject}\nTopic: {topic}\nLearner level: {level}\n"
             f"Module title: {module_title}\n"
         )
+        if curriculum:
+            prompt += f"Curriculum: {curriculum}\n"
         if goals:
             prompt += f"Learner goals: {goals}\n"
         prompt += "\nCreate lesson content for this module."
@@ -339,24 +437,59 @@ async def generate_lesson(grade: str, subject: str, topic: str, level: str, modu
             f"الصف: {grade}\nالمادة: {subject}\nالموضوع: {topic}\nمستوى المتعلم: {level}\n"
             f"عنوان الوحدة: {module_title}\n"
         )
+        if curriculum:
+            prompt += f"المنهاج التعليمي: {curriculum}\n"
         if goals:
             prompt += f"أهداف المتعلم: {goals}\n"
         prompt += "\nقم بإنشاء محتوى درس لهذه الوحدة."
         hint = "تأكد من أن الـ JSON صحيح تمامًا. استخدم \\\" داخل النصوص عند الحاجة. لا تترك علامات اقتباس غير مهربة في المحتوى."
-    return await _generate_json(runner, prompt, hint)
+    lesson = await _generate_json(runner, prompt, hint)
+
+    if curriculum:
+        validation = await validate_content(lesson, grade, subject, topic, level, curriculum, language)
+        if not validation.get("is_aligned", True):
+            issues = validation.get("issues", [])
+            suggestions = validation.get("suggestions", [])
+            if language == "en":
+                retry_prompt = prompt + (
+                    f"\n\nPrevious attempt was not aligned with the curriculum. Issues found:\n"
+                    + "\n".join(f"- {i}" for i in issues)
+                    + "\n\nSuggestions to improve:\n"
+                    + "\n".join(f"- {s}" for s in suggestions)
+                    + "\n\nPlease regenerate the lesson content addressing these issues."
+                )
+            else:
+                retry_prompt = prompt + (
+                    f"\n\nالمحاولة السابقة لم تتوافق مع المنهج. المشاكل المكتشفة:\n"
+                    + "\n".join(f"- {i}" for i in issues)
+                    + "\n\nاقتراحات للتحسين:\n"
+                    + "\n".join(f"- {s}" for s in suggestions)
+                    + "\n\nيرجى إعادة إنشاء محتوى الدرس مع معالجة هذه المشاكل."
+                )
+            lesson = await _generate_json(runner, retry_prompt, hint)
+
+    return lesson
 
 
-async def generate_quiz(topic: str, level: str, lesson_content: str, language: str = "ar") -> dict:
+async def generate_quiz(topic: str, level: str, lesson_content: str, language: str = "ar", curriculum: str = "") -> dict:
     runner = _get_runner(language, QUIZ_RUNNER_AR, QUIZ_RUNNER_EN)
     if language == "en":
         prompt = (
             f"Topic: {topic}\nLearner level: {level}\n"
+        )
+        if curriculum:
+            prompt += f"Curriculum: {curriculum}\n"
+        prompt += (
             f"Lesson content:\n{lesson_content}\n\nCreate quiz questions."
         )
         hint = "Make sure the JSON is valid with no errors."
     else:
         prompt = (
             f"الموضوع: {topic}\nمستوى المتعلم: {level}\n"
+        )
+        if curriculum:
+            prompt += f"المنهاج التعليمي: {curriculum}\n"
+        prompt += (
             f"محتوى الدرس:\n{lesson_content}\n\nقم بإنشاء أسئلة اختبار."
         )
         hint = "تأكد من أن JSON صالح تمامًا بدون أخطاء."
@@ -380,3 +513,26 @@ async def evaluate_answers(questions: list, user_answers: list, correct_answers:
         )
         hint = "تأكد من أن JSON صالح تمامًا بدون أخطاء."
     return await _generate_json(runner, prompt, hint)
+
+
+async def validate_content(content: dict, grade: str, subject: str, topic: str, level: str, curriculum: str, language: str = "ar") -> dict:
+    runner = _get_runner(language, VALIDATOR_RUNNER_AR, VALIDATOR_RUNNER_EN)
+    content_str = json.dumps(content, ensure_ascii=False)
+    if language == "en":
+        prompt = (
+            f"Grade: {grade}\nSubject: {subject}\nTopic: {topic}\nLevel: {level}\n"
+            f"Curriculum: {curriculum}\n\n"
+            f"Generated content:\n{content_str}\n\n"
+            f"Validate alignment with the curriculum."
+        )
+    else:
+        prompt = (
+            f"الصف: {grade}\nالمادة: {subject}\nالموضوع: {topic}\nالمستوى: {level}\n"
+            f"المنهاج التعليمي: {curriculum}\n\n"
+            f"المحتوى المُنشأ:\n{content_str}\n\n"
+            f"تحقق من التوافق مع المنهج."
+        )
+    try:
+        return await _generate_json(runner, prompt, _retry_hint(language))
+    except Exception:
+        return {"is_aligned": True, "score": 100, "issues": [], "suggestions": []}

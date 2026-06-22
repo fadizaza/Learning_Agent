@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { startSession } from '../api';
 
-const LEVEL_LABELS = { Beginner: 'Beginner', Intermediate: 'Intermediate', Advanced: 'Advanced' };
-
 export default function Home({ onStart, language, t }) {
   const [grade, setGrade] = useState('');
   const [subject, setSubject] = useState('');
   const [topic, setTopic] = useState('');
   const [level, setLevel] = useState('Beginner');
+  const [curriculum, setCurriculum] = useState('');
   const [goals, setGoals] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -18,7 +17,7 @@ export default function Home({ onStart, language, t }) {
     setLoading(true);
     setError('');
     try {
-      const session = await startSession(grade, subject, topic.trim(), level, goals.trim(), language);
+      const session = await startSession(grade, subject, topic.trim(), level, goals.trim(), language, curriculum);
       onStart(session);
     } catch (err) {
       setError(err.message);
@@ -75,6 +74,15 @@ export default function Home({ onStart, language, t }) {
             </select>
           </div>
           <div className="form-group">
+            <label>{t.home.curriculumLabel}</label>
+            <select value={curriculum} onChange={(e) => setCurriculum(e.target.value)} disabled={loading}>
+              <option value="">{t.home.curriculumPlaceholder}</option>
+              {t.curricula.map((c, i) => (
+                <option key={i} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
             <label>{t.home.goalsLabel}</label>
             <textarea
               placeholder={t.home.goalsPlaceholder}
@@ -93,6 +101,7 @@ export default function Home({ onStart, language, t }) {
                 <div><strong>{t.home.summaryGrade}</strong> {grade}</div>
                 <div><strong>{t.home.summaryTopic}</strong> {topic}</div>
                 <div><strong>{t.home.summaryLevel}</strong> {level === 'Beginner' ? t.levelBeginner : level === 'Intermediate' ? t.levelIntermediate : t.levelAdvanced}</div>
+                {curriculum && <div><strong>{t.home.summaryCurriculum}</strong> {curriculum}</div>}
                 {goals && <div><strong>{t.home.summaryGoals}</strong> {goals}</div>}
               </div>
             </div>

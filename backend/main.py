@@ -116,6 +116,7 @@ class StartRequest(BaseModel):
     level: str
     goals: str = ""
     language: str = "ar"
+    curriculum: str = ""
 
 
 class LessonRequest(BaseModel):
@@ -156,18 +157,18 @@ async def start_learning(req: StartRequest):
     lang = req.language if req.language in ("ar", "en") else "ar"
     msgs = API_ERROR_MESSAGES[lang]
     session_id = str(uuid.uuid4())[:8]
-    content_hash = compute_content_hash(req.grade, req.subject, req.topic, req.level, req.goals, lang)
+    content_hash = compute_content_hash(req.grade, req.subject, req.topic, req.level, req.goals, lang, req.curriculum)
 
-    existing = find_syllabus_by_content_hash(content_hash, req.grade, req.subject, req.topic, req.level, req.goals, lang)
+    existing = find_syllabus_by_content_hash(content_hash, req.grade, req.subject, req.topic, req.level, req.goals, lang, req.curriculum)
     if existing:
         syllabus = existing
     else:
         try:
-            syllabus = await generate_syllabus(req.grade, req.subject, req.topic, req.level, req.goals, lang)
+            syllabus = await generate_syllabus(req.grade, req.subject, req.topic, req.level, req.goals, lang, req.curriculum)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"{msgs['syllabus_failed']}: {e}")
 
-    create_session(session_id, req.grade, req.subject, req.topic, req.level, req.goals, json.dumps(syllabus), content_hash, lang)
+    create_session(session_id, req.grade, req.subject, req.topic, req.level, req.goals, json.dumps(syllabus), content_hash, lang, req.curriculum)
     init_progress(session_id, syllabus.get("modules", []))
 
     return {
@@ -178,6 +179,7 @@ async def start_learning(req: StartRequest):
         "level": req.level,
         "goals": req.goals,
         "language": lang,
+        "curriculum": req.curriculum,
         "syllabus": syllabus,
     }
 
@@ -196,6 +198,7 @@ def get_session_info(session_id: str):
         "topic": session["topic"],
         "level": session["level"],
         "language": session.get("language", "ar"),
+        "curriculum": session.get("curriculum", ""),
         "syllabus": syllabus,
         "progress": progress,
     }
@@ -219,8 +222,9 @@ async def get_lesson(req: LessonRequest):
     lang = session.get("language", "ar")
     msgs = API_ERROR_MESSAGES[lang]
     grade, subject, topic, level, goals = session["grade"], session["subject"], session["topic"], session["level"], session.get("goals", "")
+    curriculum = session.get("curriculum", "")
 
-    content_hash = compute_content_hash(grade, subject, topic, level, goals, lang)
+    content_hash = compute_content_hash(grade, subject, topic, level, goals, lang, curriculum)
 
     cached = get_cached_lesson_by_content(content_hash, req.module_index)
     if cached:
@@ -230,13 +234,13 @@ async def get_lesson(req: LessonRequest):
     if cached:
         return cached
 
-    cached = find_cached_lesson_by_params(grade, subject, topic, level, goals, req.module_index, lang)
+    cached = find_cached_lesson_by_params(grade, subject, topic, level, goals, req.module_index, lang, curriculum)
     if cached:
         save_lesson_to_cache(content_hash, req.module_index, json.dumps(cached))
         return cached
 
     try:
-        lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang)
+        lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang, curriculum)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"{msgs['lesson_failed']}: {e}")
     lesson = await resolve_images(lesson)
@@ -253,8 +257,9 @@ async def get_quiz(req: QuizRequest):
         raise HTTPException(status_code=404, detail="Session not found")
     lang = session.get("language", "ar")
     msgs = API_ERROR_MESSAGES[lang]
+    curriculum = session.get("curriculum", "")
     try:
-        quiz = await generate_quiz(session["topic"], session["level"], req.lesson_content, lang)
+        quiz = await generate_quiz(session["topic"], session["level"], req.lesson_content, lang, curriculum)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"{msgs['quiz_failed']}: {e}")
     return quiz

@@ -27,6 +27,7 @@ def init_db():
             goals TEXT DEFAULT '',
             syllabus TEXT,
             language TEXT DEFAULT 'ar',
+            curriculum TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -88,16 +89,20 @@ def init_db():
         cursor.execute("ALTER TABLE sessions ADD COLUMN language TEXT DEFAULT 'ar'")
     except sqlite3.OperationalError:
         pass
+    try:
+        cursor.execute("ALTER TABLE sessions ADD COLUMN curriculum TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     conn.close()
 
 
-def compute_content_hash(grade: str, subject: str, topic: str, level: str, goals: str, language: str = "ar") -> str:
-    key = f"{grade}|{subject}|{topic}|{level}|{goals}|{language}"
+def compute_content_hash(grade: str, subject: str, topic: str, level: str, goals: str, language: str = "ar", curriculum: str = "") -> str:
+    key = f"{grade}|{subject}|{topic}|{level}|{goals}|{language}|{curriculum}"
     return hashlib.md5(key.encode("utf-8")).hexdigest()
 
 
-def find_syllabus_by_content_hash(content_hash: str, grade="", subject="", topic="", level="", goals="", language="ar"):
+def find_syllabus_by_content_hash(content_hash: str, grade="", subject="", topic="", level="", goals="", language="ar", curriculum=""):
     conn = get_connection()
     row = conn.execute(
         "SELECT syllabus FROM sessions WHERE content_hash = ? AND syllabus IS NOT NULL LIMIT 1",
@@ -108,8 +113,8 @@ def find_syllabus_by_content_hash(content_hash: str, grade="", subject="", topic
         return json.loads(row["syllabus"])
     if grade:
         row2 = conn.execute(
-            "SELECT id, syllabus FROM sessions WHERE grade=? AND subject=? AND topic=? AND level=? AND goals=? AND language=? AND syllabus IS NOT NULL LIMIT 1",
-            (grade, subject, topic, level, goals, language),
+            "SELECT id, syllabus FROM sessions WHERE grade=? AND subject=? AND topic=? AND level=? AND goals=? AND language=? AND curriculum=? AND syllabus IS NOT NULL LIMIT 1",
+            (grade, subject, topic, level, goals, language, curriculum),
         ).fetchone()
         if row2:
             conn.execute(
@@ -125,11 +130,11 @@ def find_syllabus_by_content_hash(content_hash: str, grade="", subject="", topic
     return None
 
 
-def create_session(session_id: str, grade: str, subject: str, topic: str, level: str, goals: str, syllabus: str, content_hash: str = "", language: str = "ar"):
+def create_session(session_id: str, grade: str, subject: str, topic: str, level: str, goals: str, syllabus: str, content_hash: str = "", language: str = "ar", curriculum: str = ""):
     conn = get_connection()
     conn.execute(
-        "INSERT INTO sessions (id, grade, subject, topic, level, goals, syllabus, content_hash, language) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (session_id, grade, subject, topic, level, goals, syllabus, content_hash, language),
+        "INSERT INTO sessions (id, grade, subject, topic, level, goals, syllabus, content_hash, language, curriculum) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (session_id, grade, subject, topic, level, goals, syllabus, content_hash, language, curriculum),
     )
     conn.commit()
     conn.close()
@@ -202,15 +207,15 @@ def save_lesson_to_cache(lesson_cache_key: str, module_index: int, content: str)
     conn.close()
 
 
-def find_cached_lesson_by_params(grade, subject, topic, level, goals, module_index, language="ar"):
+def find_cached_lesson_by_params(grade, subject, topic, level, goals, module_index, language="ar", curriculum=""):
     conn = get_connection()
     row = conn.execute(
         """SELECT l.content FROM lessons l
            JOIN sessions s ON l.session_id = s.id
-           WHERE s.grade=? AND s.subject=? AND s.topic=? AND s.level=? AND s.goals=? AND s.language=?
+           WHERE s.grade=? AND s.subject=? AND s.topic=? AND s.level=? AND s.goals=? AND s.language=? AND s.curriculum=?
              AND l.module_index=?
            LIMIT 1""",
-        (grade, subject, topic, level, goals, language, module_index),
+        (grade, subject, topic, level, goals, language, curriculum, module_index),
     ).fetchone()
     conn.close()
     return json.loads(row["content"]) if row else None
