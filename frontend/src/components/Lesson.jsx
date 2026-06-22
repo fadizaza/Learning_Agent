@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { getLesson, getQuiz } from '../api';
+import { getLesson, getQuiz, getTTS } from '../api';
 
 const CARD_COLORS = ['card-blue', 'card-green', 'card-orange', 'card-pink', 'card-purple'];
 
@@ -111,7 +111,7 @@ function renderLines(lines) {
   return elements;
 }
 
-export default function Lesson({ session, module, onLessonReady, onStartQuiz, onBack }) {
+export default function Lesson({ session, module, onLessonReady, onStartQuiz, onBack, language, t }) {
   const [lesson, setLesson] = useState(null);
   const [sections, setSections] = useState([]);
   const [currentCard, setCurrentCard] = useState(0);
@@ -120,7 +120,6 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
   const [error, setError] = useState('');
   const [speaking, setSpeaking] = useState(false);
   const [sectionSpeaking, setSectionSpeaking] = useState(null);
-  const utteranceRef = useRef(null);
   const audioRef = useRef(null);
   const sectionAudioRef = useRef(null);
 
@@ -145,12 +144,7 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
     stopListening();
     setSectionSpeaking(sectionKey);
     try {
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const res = await fetch(`${API_BASE}/api/tts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
+      const res = await getTTS(text, language);
       if (!res.ok) {
         setSectionSpeaking(null);
         return;
@@ -180,12 +174,17 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
 
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === 'ArrowRight') goNext();
-      else if (e.key === 'ArrowLeft') goPrev();
+      if (e.key === 'ArrowRight') {
+        if (language === 'ar') goNext();
+        else goPrev();
+      } else if (e.key === 'ArrowLeft') {
+        if (language === 'ar') goPrev();
+        else goNext();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [currentCard, sections.length]);
+  }, [currentCard, sections.length, language]);
 
   useEffect(() => {
     stopListening();
@@ -196,7 +195,7 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
     setLoading(true);
     setError('');
     try {
-      const l = await getLesson(session.session_id, module.index, module.title);
+      const l = await getLesson(session.session_id, module.index, module.title, language);
       setLesson(l);
       onLessonReady(l);
       setSections(parseSections(l.content || '', l.sections_images || {}));
@@ -241,12 +240,7 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
   const speak = async (text) => {
     setSpeaking(true);
     try {
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const res = await fetch(`${API_BASE}/api/tts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
+      const res = await getTTS(text, language);
       if (!res.ok) {
         setSpeaking(false);
         return;
@@ -291,7 +285,7 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
     setQuizLoading(true);
     try {
       const content = lesson.content || JSON.stringify(lesson);
-      const q = await getQuiz(session.session_id, module.index, module.title, content);
+      const q = await getQuiz(session.session_id, module.index, module.title, content, language);
       onStartQuiz(q);
     } catch (err) {
       setError(err.message);
@@ -304,15 +298,15 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
   if (error) return (
     <div className="flash-card card-pink">
       <p style={{ color: '#ea4335' }}>{error}</p>
-      <button className="btn btn-secondary" onClick={load}>🔄 إعادة المحاولة</button>
+      <button className="btn btn-secondary" onClick={load}>{t.lesson.retry}</button>
     </div>
   );
 
   if (sections.length === 0) {
     return (
       <div className="flash-card card-pink">
-        <p style={{ color: '#ea4335' }}>لا يوجد محتوى لهذه الوحدة</p>
-        <button className="btn btn-secondary" onClick={onBack}>🔙 العودة إلى المنهج</button>
+        <p style={{ color: '#ea4335' }}>{t.lesson.noContent}</p>
+        <button className="btn btn-secondary" onClick={onBack}>{t.lesson.backToSyllabus}</button>
       </div>
     );
   }
@@ -330,10 +324,10 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
         <button
           className={`tts-btn ${speaking ? 'playing' : ''}`}
           onClick={toggleListening}
-          title={speaking ? 'إيقاف' : 'استماع'}
+          title={speaking ? t.lesson.stop : t.lesson.listen}
         >
           {speaking ? '⏹' : '🔊'}
-          <span className="tts-label">{speaking ? 'إيقاف' : 'استماع'}</span>
+          <span className="tts-label">{speaking ? t.lesson.stop : t.lesson.listen}</span>
           {speaking && <span className="wave-bars"><span /><span /><span /></span>}
         </button>
         {section.heading && <h3 className="section-heading">{section.heading}</h3>}
@@ -348,7 +342,7 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
       {sections.length > 1 && (
         <div className="card-nav">
           <button className="btn btn-sm" onClick={goPrev} disabled={currentCard === 0}>
-            ▶ السابق
+            {t.lesson.prev}
           </button>
           <div className="nav-dots">
             {sections.map((_, i) => (
@@ -360,7 +354,7 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
             ))}
           </div>
           <button className="btn btn-sm" onClick={goNext} disabled={currentCard === sections.length - 1}>
-            التالي ◀
+            {t.lesson.next}
           </button>
         </div>
       )}
@@ -372,7 +366,7 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
       {lesson?.key_points && lesson.key_points.length > 0 && (
         <div className="flash-card card-green">
           <div className="section-header">
-            <h3>💡 النقاط الرئيسية</h3>
+            <h3>💡 {t.lesson.keyPoints}</h3>
             <button
               className={`tts-btn ${sectionSpeaking === 'key_points' ? 'playing' : ''}`}
               onClick={() => {
@@ -382,10 +376,10 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
                   speakSection(lesson.key_points.map(p => p.replace(/\*/g, '')).join('. '), 'key_points');
                 }
               }}
-              title={sectionSpeaking === 'key_points' ? 'إيقاف' : 'استماع'}
+              title={sectionSpeaking === 'key_points' ? t.lesson.stop : t.lesson.listen}
             >
               {sectionSpeaking === 'key_points' ? '⏹' : '🔊'}
-              <span className="tts-label">{sectionSpeaking === 'key_points' ? 'إيقاف' : 'استماع'}</span>
+              <span className="tts-label">{sectionSpeaking === 'key_points' ? t.lesson.stop : t.lesson.listen}</span>
               {sectionSpeaking === 'key_points' && <span className="wave-bars"><span /><span /><span /></span>}
             </button>
           </div>
@@ -400,7 +394,7 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
       {lesson?.examples && lesson.examples.length > 0 && (
         <div className="flash-card card-orange">
           <div className="section-header">
-            <h3>📝 أمثلة</h3>
+            <h3>📝 {t.lesson.examples}</h3>
             <button
               className={`tts-btn ${sectionSpeaking === 'examples' ? 'playing' : ''}`}
               onClick={() => {
@@ -410,10 +404,10 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
                   speakSection(lesson.examples.map(ex => ex.replace(/\*/g, '')).join('. '), 'examples');
                 }
               }}
-              title={sectionSpeaking === 'examples' ? 'إيقاف' : 'استماع'}
+              title={sectionSpeaking === 'examples' ? t.lesson.stop : t.lesson.listen}
             >
               {sectionSpeaking === 'examples' ? '⏹' : '🔊'}
-              <span className="tts-label">{sectionSpeaking === 'examples' ? 'إيقاف' : 'استماع'}</span>
+              <span className="tts-label">{sectionSpeaking === 'examples' ? t.lesson.stop : t.lesson.listen}</span>
               {sectionSpeaking === 'examples' && <span className="wave-bars"><span /><span /><span /></span>}
             </button>
           </div>
@@ -426,9 +420,9 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
       )}
 
       <div className="actions">
-        <button className="btn btn-secondary" onClick={onBack}>🔙 العودة إلى المنهج</button>
+        <button className="btn btn-secondary" onClick={onBack}>{t.lesson.backToSyllabus}</button>
         <button className="btn btn-success" onClick={handleQuiz} disabled={quizLoading}>
-          {quizLoading ? 'جارٍ إنشاء الاختبار...' : '🧪 ابدأ الاختبار'}
+          {quizLoading ? t.lesson.loadingQuiz : t.lesson.startQuiz}
         </button>
       </div>
     </div>

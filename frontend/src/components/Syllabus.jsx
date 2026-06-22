@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { getSession } from '../api';
 
 const ICONS = ['📖', '🔬', '🧮', '🌍'];
-const STATUS_LABELS = { Beginner: 'مبتدئ', Intermediate: 'متوسط', Advanced: 'متقدم' };
 
-export default function Syllabus({ session, onSelectModule, onNewTopic }) {
+export default function Syllabus({ session, onSelectModule, onNewTopic, language, t }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [flipped, setFlipped] = useState({});
@@ -75,13 +74,15 @@ export default function Syllabus({ session, onSelectModule, onNewTopic }) {
       <div className="flash-card card-purple">
         <h2>📚 {syllabus?.topic || session.topic}</h2>
         <p style={{ fontSize: 14, color: '#888' }}>
-          المستوى: <span className="badge">{STATUS_LABELS[session.level] || session.level}</span>
+          {t.syllabus.levelLabel} <span className="badge">
+            {session.level === 'Beginner' ? t.levelBeginner : session.level === 'Intermediate' ? t.levelIntermediate : t.levelAdvanced}
+          </span>
         </p>
       </div>
       <div className="flash-card card-blue">
-        <h3>🛣️ مسار التعلم ({modules.length} وحدات)</h3>
+        <h3>🛣️ {t.syllabus.learningPath} ({modules.length} {t.syllabus.modulesUnit})</h3>
         {modules.length === 0 ? (
-          <p style={{ fontSize: 14, color: '#888' }}>لم يتم إنشاء وحدات.</p>
+          <p style={{ fontSize: 14, color: '#888' }}>{t.syllabus.noModules}</p>
         ) : (
           <div className="flip-grid">
             {modules.map((mod, i) => {
@@ -96,9 +97,9 @@ export default function Syllabus({ session, onSelectModule, onNewTopic }) {
                   <div className="flip-card-inner">
                     <div className="flip-card-front">
                       <div className="card-icon">{ICONS[i % ICONS.length]}</div>
-                      <div className="card-number">الوحدة {i + 1}</div>
+                      <div className="card-number">{t.syllabus.unit} {i + 1}</div>
                       <div className="card-title">{mod.title}</div>
-                      <div className="card-hint">👆 اضغط للتفاصيل</div>
+                      <div className="card-hint">{t.syllabus.tapHint}</div>
                     </div>
                     <div className="flip-card-back">
                       <div className="back-content">
@@ -110,10 +111,10 @@ export default function Syllabus({ session, onSelectModule, onNewTopic }) {
                       </div>
                       <div className="back-actions">
                         <span className={`back-status ${status}`}>
-                          {status === 'completed' ? '✅ تم الإنجاز' : '⏳ لم يبدأ بعد'}
+                          {status === 'completed' ? t.syllabus.completed : t.syllabus.pending}
                         </span>
                         <button className="back-btn" onClick={(e) => handleStartLesson(e, mod, i)}>
-                          {status === 'completed' ? '📖 أعد الدراسة' : '🚀 ابدأ الدرس'}
+                          {status === 'completed' ? t.syllabus.retryLesson : t.syllabus.startLesson}
                         </button>
                       </div>
                     </div>
@@ -125,7 +126,7 @@ export default function Syllabus({ session, onSelectModule, onNewTopic }) {
         )}
       </div>
       <div className="actions">
-        <button className="btn btn-secondary" onClick={onNewTopic}>➕ موضوع جديد</button>
+        <button className="btn btn-secondary" onClick={onNewTopic}>{t.syllabus.newTopic}</button>
       </div>
     </div>
   );

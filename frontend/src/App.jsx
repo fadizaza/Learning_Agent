@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Home from './components/Home';
 import Syllabus from './components/Syllabus';
 import Lesson from './components/Lesson';
 import Quiz from './components/Quiz';
 import Results from './components/Results';
+import { getTranslation } from './i18n';
 import './App.css';
 
 const STEPS = { HOME: 'home', SYLLABUS: 'syllabus', LESSON: 'lesson', QUIZ: 'quiz', RESULTS: 'results' };
@@ -15,6 +16,18 @@ export default function App() {
   const [lesson, setLesson] = useState(null);
   const [quiz, setQuiz] = useState(null);
   const [results, setResults] = useState(null);
+  const [language, setLanguage] = useState('ar');
+
+  const t = getTranslation(language);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+  }, [language]);
+
+  const toggleLanguage = () => {
+    setLanguage((prev) => (prev === 'ar' ? 'en' : 'ar'));
+  };
 
   const handleStart = (s) => {
     setSession(s);
@@ -60,21 +73,30 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>وكيل التعلم الذكي</h1>
-        {session && (
-          <div className="session-info">
-            <span>{session.grade} — {session.subject} — {session.topic}</span>
-            <span className="badge">{session.level === 'Beginner' ? 'مبتدئ' : session.level === 'Intermediate' ? 'متوسط' : 'متقدم'}</span>
-          </div>
-        )}
+        <h1>{t.appTitle}</h1>
+        <div className="header-right">
+          {session && (
+            <div className="session-info">
+              <span>{session.grade} — {session.subject} — {session.topic}</span>
+              <span className="badge">
+                {session.level === 'Beginner' ? t.levelBeginner : session.level === 'Intermediate' ? t.levelIntermediate : t.levelAdvanced}
+              </span>
+            </div>
+          )}
+          <button className="lang-toggle" onClick={toggleLanguage}>
+            {language === 'ar' ? 'EN' : 'ع'}
+          </button>
+        </div>
       </header>
       <main className="app-main">
-        {step === STEPS.HOME && <Home onStart={handleStart} />}
+        {step === STEPS.HOME && <Home onStart={handleStart} language={language} t={t} />}
         {step === STEPS.SYLLABUS && session && (
           <Syllabus
             session={session}
             onSelectModule={handleSelectModule}
             onNewTopic={handleNewTopic}
+            language={language}
+            t={t}
           />
         )}
         {step === STEPS.LESSON && session && activeModule && (
@@ -84,6 +106,8 @@ export default function App() {
             onLessonReady={handleLessonReady}
             onStartQuiz={handleStartQuiz}
             onBack={handleBackToSyllabus}
+            language={language}
+            t={t}
           />
         )}
         {step === STEPS.QUIZ && session && activeModule && quiz && (
@@ -94,6 +118,8 @@ export default function App() {
             lesson={lesson}
             onSubmit={handleQuizSubmit}
             onBack={handleBackToSyllabus}
+            language={language}
+            t={t}
           />
         )}
         {step === STEPS.RESULTS && session && activeModule && (
@@ -103,6 +129,8 @@ export default function App() {
             results={results}
             onContinue={handleBackToSyllabus}
             onNewTopic={handleNewTopic}
+            language={language}
+            t={t}
           />
         )}
       </main>

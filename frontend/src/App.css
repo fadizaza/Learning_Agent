@@ -4,7 +4,6 @@ body {
   font-family: 'Segoe UI', 'Noto Sans Arabic', Tahoma, sans-serif;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #333;
-  direction: rtl;
   min-height: 100vh;
 }
 
@@ -29,13 +28,37 @@ body {
   animation: fadeInDown 0.6s ease;
 }
 
-.session-info {
+.header-right {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.session-info {
   display: flex;
   align-items: center;
   gap: 12px;
   font-size: 15px;
   animation: fadeIn 0.8s ease;
+}
+
+.lang-toggle {
+  background: rgba(255,255,255,0.25);
+  border: 2px solid rgba(255,255,255,0.5);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
+}
+
+.lang-toggle:hover {
+  background: rgba(255,255,255,0.4);
+  transform: scale(1.05);
 }
 
 .badge {
@@ -432,6 +455,7 @@ body {
 }
 
 [dir="rtl"] .tts-btn { right: auto; left: 20px; }
+[dir="ltr"] .tts-btn { left: auto; right: 20px; }
 
 /* ---- Lesson content cards ---- */
 .card-section { min-height: 120px; position: relative; }
@@ -734,3 +758,19 @@ body {
 [dir="rtl"] .examples li { border-right: 4px solid #f39c12; border-left: none; }
 [dir="rtl"] .weak-areas li { border-right: 4px solid #f5576c; border-left: none; }
 [dir="rtl"] .session-info { margin-left: 0; margin-right: auto; }
+[dir="rtl"] .header-right { margin-left: auto; margin-right: 0; }
+
+/* ---- LTR overrides ---- */
+[dir="ltr"] .app-header { flex-direction: row; }
+[dir="ltr"] .header-right { margin-left: auto; margin-right: 0; }
+[dir="ltr"] .session-info { direction: ltr; }
+[dir="ltr"] .flip-card-front .card-hint::before { content: '👉'; }
+[dir="ltr"] .flip-card-back .back-points li::before { content: '✦'; left: 0; right: auto; }
+[dir="ltr"] .flip-card-back .back-points li { padding: 4px 16px 4px 0; }
+[dir="ltr"] .examples li { border-left: 4px solid #f39c12; border-right: none; }
+[dir="ltr"] .weak-areas li { border-left: 4px solid #f5576c; border-right: none; }
+[dir="ltr"] .quiz-option:hover { transform: translateX(-4px); }
+[dir="ltr"] .quiz-option.selected::after { left: 14px; right: auto; }
+[dir="ltr"] .lesson-table { direction: ltr; }
+[dir="ltr"] .lesson-table th,
+[dir="ltr"] .lesson-table td { text-align: left; }

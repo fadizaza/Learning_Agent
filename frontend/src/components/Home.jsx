@@ -1,43 +1,9 @@
 import React, { useState } from 'react';
 import { startSession } from '../api';
 
-const SUBJECTS = [
-  'اللغة العربية',
-  'العلوم',
-  'الرياضيات',
-  'التاريخ',
-  'الجغرافيا',
-  'اللغة الإنجليزية',
-  'الفيزياء',
-  'الكيمياء',
-  'الأحياء',
-  'التربية الإسلامية',
-  'البرمجة وتقنية المعلومات',
-  'الفنون',
-  'الاقتصاد',
-  'الفلسفة',
-  'علم النفس',
-  'علوم الحاسوب',
-];
+const LEVEL_LABELS = { Beginner: 'Beginner', Intermediate: 'Intermediate', Advanced: 'Advanced' };
 
-const GRADES = [
-  'الصف الأول ',
-  'الصف الثاني ',
-  'الصف الثالث ',
-  'الصف الرابع ',
-  'الصف الخامس ',
-  'الصف السادس ',
-  'الصف السابع ',
-  'الصف الثامن ',
-  'الصف التاسع ',
-  'الصف العاشر ',
-  'الصف الحادي عشر ',
-  'الصف الثاني عشر ',
-];
-
-const LEVEL_LABELS = { Beginner: 'مبتدئ', Intermediate: 'متوسط', Advanced: 'متقدم' };
-
-export default function Home({ onStart }) {
+export default function Home({ onStart, language, t }) {
   const [grade, setGrade] = useState('');
   const [subject, setSubject] = useState('');
   const [topic, setTopic] = useState('');
@@ -52,7 +18,7 @@ export default function Home({ onStart }) {
     setLoading(true);
     setError('');
     try {
-      const session = await startSession(grade, subject, topic.trim(), level, goals.trim());
+      const session = await startSession(grade, subject, topic.trim(), level, goals.trim(), language);
       onStart(session);
     } catch (err) {
       setError(err.message);
@@ -68,50 +34,50 @@ export default function Home({ onStart }) {
       <div className="flash-card card-pink">
         <div className="welcome-banner">
           <span className="emoji-big">🧠</span>
-          <h2>ماذا تريد أن تتعلم اليوم؟</h2>
-          <p>اختر المادة واكتب الموضوع وابدأ رحلة التعلم!</p>
+          <h2>{t.home.welcomeTitle}</h2>
+          <p>{t.home.welcomeSubtitle}</p>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>المادة</label>
+            <label>{t.home.subjectLabel}</label>
             <select value={subject} onChange={(e) => setSubject(e.target.value)} disabled={loading}>
-              <option value="">-- اختر المادة --</option>
-              {SUBJECTS.map((s) => (
-                <option key={s} value={s}>{s}</option>
+              <option value="">{t.home.subjectPlaceholder}</option>
+              {t.subjects.map((s, i) => (
+                <option key={i} value={s}>{s}</option>
               ))}
             </select>
           </div>
           <div className="form-group">
-            <label>الصف</label>
+            <label>{t.home.gradeLabel}</label>
             <select value={grade} onChange={(e) => setGrade(e.target.value)} disabled={loading}>
-              <option value="">-- اختر الصف --</option>
-              {GRADES.map((g) => (
-                <option key={g} value={g}>{g}</option>
+              <option value="">{t.home.gradePlaceholder}</option>
+              {t.grades.map((g, i) => (
+                <option key={i} value={g}>{g}</option>
               ))}
             </select>
           </div>
           <div className="form-group">
-            <label>الموضوع</label>
+            <label>{t.home.topicLabel}</label>
             <input
               type="text"
-              placeholder="مثال: التفاضل والتكامل، النحو، الجبر..."
+              placeholder={t.home.topicPlaceholder}
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               disabled={loading}
             />
           </div>
           <div className="form-group">
-            <label>مستواك</label>
+            <label>{t.home.levelLabel}</label>
             <select value={level} onChange={(e) => setLevel(e.target.value)} disabled={loading}>
-              <option value="Beginner">مبتدئ</option>
-              <option value="Intermediate">متوسط</option>
-              <option value="Advanced">متقدم</option>
+              <option value="Beginner">{t.levelBeginner}</option>
+              <option value="Intermediate">{t.levelIntermediate}</option>
+              <option value="Advanced">{t.levelAdvanced}</option>
             </select>
           </div>
           <div className="form-group">
-            <label>أهداف التعلم (اختياري)</label>
+            <label>{t.home.goalsLabel}</label>
             <textarea
-              placeholder="مثال: أريد فهم الأساسيات وحل المسائل بنفسي..."
+              placeholder={t.home.goalsPlaceholder}
               value={goals}
               onChange={(e) => setGoals(e.target.value)}
               disabled={loading}
@@ -121,20 +87,20 @@ export default function Home({ onStart }) {
 
           {isValid && !loading && (
             <div className="summary-card">
-              <h3>📋 ملخص طلبك</h3>
+              <h3>📋 {t.home.summaryTitle}</h3>
               <div className="summary-row">
-                <div><strong>المادة:</strong> {subject}</div>
-                <div><strong>الصف:</strong> {grade}</div>
-                <div><strong>الموضوع:</strong> {topic}</div>
-                <div><strong>المستوى:</strong> {LEVEL_LABELS[level]}</div>
-                {goals && <div><strong>الأهداف:</strong> {goals}</div>}
+                <div><strong>{t.home.summarySubject}</strong> {subject}</div>
+                <div><strong>{t.home.summaryGrade}</strong> {grade}</div>
+                <div><strong>{t.home.summaryTopic}</strong> {topic}</div>
+                <div><strong>{t.home.summaryLevel}</strong> {level === 'Beginner' ? t.levelBeginner : level === 'Intermediate' ? t.levelIntermediate : t.levelAdvanced}</div>
+                {goals && <div><strong>{t.home.summaryGoals}</strong> {goals}</div>}
               </div>
             </div>
           )}
 
           {error && <p style={{ color: '#ea4335', fontSize: 14, marginBottom: 12 }}>{error}</p>}
           <button type="submit" className="btn btn-primary" disabled={loading || !isValid}>
-            {loading ? 'جارٍ إنشاء خطة التعلم...' : 'ابدأ التعلم 🚀'}
+            {loading ? t.home.loading : t.home.submit}
           </button>
         </form>
       </div>

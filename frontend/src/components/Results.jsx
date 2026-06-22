@@ -1,52 +1,45 @@
 import React from 'react';
 
-const GRADE_EMOJI = {
-  'ممتاز!': '🏆',
-  'أحسنت!': '🌟',
-  'واصل التدريب!': '💪',
-  'بحاجة إلى تحسين': '📚',
-};
-
-export default function Results({ session, module, results, onContinue, onNewTopic }) {
+export default function Results({ session, module, results, onContinue, onNewTopic, language, t }) {
   if (!results) {
     return (
       <div className="flash-card card-pink" style={{ textAlign: 'center' }}>
-        <h2>📊 النتائج</h2>
-        <p>لا توجد نتائج متاحة.</p>
+        <h2>📊 {t.results.title}</h2>
+        <p>{t.results.noResults}</p>
         <div className="actions" style={{ justifyContent: 'center' }}>
-          <button className="btn btn-secondary" onClick={onContinue}>🔙 العودة إلى المنهج</button>
+          <button className="btn btn-secondary" onClick={onContinue}>{t.results.backToSyllabus}</button>
         </div>
       </div>
     );
   }
 
   const score = Math.round(results.score || 0);
-  const grade = score >= 80 ? 'ممتاز!' : score >= 60 ? 'أحسنت!' : score >= 40 ? 'واصل التدريب!' : 'بحاجة إلى تحسين';
-  const emoji = GRADE_EMOJI[grade];
+  const gradeText = score >= 80 ? t.results.gradeExcellent : score >= 60 ? t.results.gradeGood : score >= 40 ? t.results.gradePractice : t.results.gradeImprove;
+  const emoji = score >= 80 ? '🏆' : score >= 60 ? '🌟' : score >= 40 ? '💪' : '📚';
 
   return (
     <div>
       <div className="flash-card card-purple" style={{ textAlign: 'center' }}>
-        <h2>📊 نتائج الاختبار: {module.title}</h2>
+        <h2>📊 {t.results.quizResults}: {module.title}</h2>
         <div className="result-score">
           <div className="score-value">{score}%</div>
           <div className="score-label">
-            <span style={{ fontSize: 24 }}>{emoji}</span> {grade}
+            <span style={{ fontSize: 24 }}>{emoji}</span> {gradeText}
           </div>
           <div className="score-label" style={{ marginTop: 6 }}>
-            {results.correct_count} من {results.total_questions} إجابات صحيحة
+            {results.correct_count} / {results.total_questions} {t.results.correctOf}
           </div>
         </div>
       </div>
 
       <div className="flash-card card-blue">
-        <h3>💬 التعليقات</h3>
+        <h3>💬 {t.results.feedback}</h3>
         <p className="result-feedback">{results.feedback}</p>
       </div>
 
       {results.weak_areas && results.weak_areas.length > 0 && (
         <div className="flash-card card-pink">
-          <h3>🎯 مجالات التحسين</h3>
+          <h3>🎯 {t.results.improvementAreas}</h3>
           <ul className="weak-areas">
             {results.weak_areas.map((area, i) => (
               <li key={i} style={{ animationDelay: `${i * 0.1}s` }}>{area}</li>
@@ -57,14 +50,14 @@ export default function Results({ session, module, results, onContinue, onNewTop
 
       {results.next_steps && (
         <div className="flash-card card-green">
-          <h3>🚀 الخطوات التالية</h3>
+          <h3>🚀 {t.results.nextSteps}</h3>
           <p className="result-feedback">{results.next_steps}</p>
         </div>
       )}
 
       <div className="actions" style={{ justifyContent: 'center' }}>
-        <button className="btn btn-primary" onClick={onContinue}>🔙 العودة إلى المنهج</button>
-        <button className="btn btn-secondary" onClick={onNewTopic}>➕ موضوع جديد</button>
+        <button className="btn btn-primary" onClick={onContinue}>{t.results.backToSyllabus}</button>
+        <button className="btn btn-secondary" onClick={onNewTopic}>{t.results.newTopic}</button>
       </div>
     </div>
   );
