@@ -58,6 +58,7 @@ def init_db():
             answers TEXT,
             score REAL,
             feedback TEXT,
+            retry_count INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (session_id) REFERENCES sessions(id)
         );
@@ -231,11 +232,11 @@ def get_cached_lesson_by_content(lesson_cache_key: str, module_index: int):
     return json.loads(row["content"]) if row else None
 
 
-def save_quiz_attempt(session_id: str, module_index: int, questions: str, answers: str, score: float, feedback: str):
+def save_quiz_attempt(session_id: str, module_index: int, questions: str, answers: str, score: float, feedback: str, retry_count: int = 0):
     conn = get_connection()
     conn.execute(
-        "INSERT INTO quiz_attempts (session_id, module_index, questions, answers, score, feedback) VALUES (?, ?, ?, ?, ?, ?)",
-        (session_id, module_index, questions, answers, score, feedback),
+        "INSERT INTO quiz_attempts (session_id, module_index, questions, answers, score, feedback, retry_count) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (session_id, module_index, questions, answers, score, feedback, retry_count),
     )
     conn.commit()
     conn.close()

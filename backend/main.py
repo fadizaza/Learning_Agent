@@ -141,6 +141,7 @@ class SubmitRequest(BaseModel):
     user_answers: list
     correct_answers: list
     language: str = "ar"
+    retry_count: int = 0
 
 
 @app.on_event("startup")
@@ -283,6 +284,7 @@ async def submit_quiz(req: SubmitRequest):
         json.dumps(req.user_answers),
         score,
         result.get("feedback", ""),
+        req.retry_count,
     )
 
     return result

@@ -633,6 +633,70 @@ body {
   font-weight: 700;
 }
 
+.quiz-option.correct {
+  border-color: #2ecc71;
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+}
+
+.quiz-option.correct::after {
+  content: '✓';
+  color: #2ecc71;
+}
+
+.quiz-option.incorrect {
+  border-color: #ea4335;
+  background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+  box-shadow: 0 4px 15px rgba(234, 67, 53, 0.3);
+}
+
+.quiz-option.incorrect::after {
+  content: '✗';
+  color: #ea4335;
+}
+
+.option-indicator {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.correct-indicator {
+  color: #2ecc71;
+}
+
+.incorrect-indicator {
+  color: #ea4335;
+}
+
+.explanation {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  animation: fadeInUp 0.3s ease;
+}
+
+.explanation-correct {
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  border-left: 4px solid #2ecc71;
+  color: #155724;
+}
+
+.explanation-incorrect {
+  background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+  border-left: 4px solid #ea4335;
+  color: #721c24;
+}
+
+.card-green {
+  border-top: 5px solid #2ecc71;
+}
+
 /* ---- Result score animation ---- */
 .result-score {
   text-align: center;
@@ -755,6 +819,7 @@ body {
 /* ---- RTL overrides ---- */
 [dir="rtl"] .quiz-option:hover { transform: translateX(4px); }
 [dir="rtl"] .quiz-option.selected::after { left: auto; right: 14px; }
+[dir="rtl"] .option-indicator { left: auto; right: 14px; }
 [dir="rtl"] .examples li { border-right: 4px solid #f39c12; border-left: none; }
 [dir="rtl"] .weak-areas li { border-right: 4px solid #f5576c; border-left: none; }
 [dir="rtl"] .session-info { margin-left: 0; margin-right: auto; }
@@ -771,6 +836,7 @@ body {
 [dir="ltr"] .weak-areas li { border-left: 4px solid #f5576c; border-right: none; }
 [dir="ltr"] .quiz-option:hover { transform: translateX(-4px); }
 [dir="ltr"] .quiz-option.selected::after { left: 14px; right: auto; }
+[dir="ltr"] .option-indicator { left: 14px; right: auto; }
 [dir="ltr"] .lesson-table { direction: ltr; }
 [dir="ltr"] .lesson-table th,
 [dir="ltr"] .lesson-table td { text-align: left; }

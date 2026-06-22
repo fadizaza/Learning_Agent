@@ -120,7 +120,7 @@ QUIZ_INSTRUCTION_AR = (
     "    }\n"
     "  ]\n"
     "}\n\n"
-    "قم بإنشاء 4 أسئلة. correct_answer هو الفهرس (يبدأ من 0) للخيار الصحيح. "
+    "قم بإنشاء 10 أسئلة. correct_answer هو الفهرس (يبدأ من 0) للخيار الصحيح. "
     "نوّع مستويات الصعوبة بشكل مناسب. يجب أن يكون كل المحتوى باللغة العربية."
 )
 
@@ -140,7 +140,7 @@ QUIZ_INSTRUCTION_EN = (
     "    }\n"
     "  ]\n"
     "}\n\n"
-    "Create 4 questions. correct_answer is the index (starting from 0) of the correct option. "
+    "Create 10 questions. correct_answer is the index (starting from 0) of the correct option. "
     "Vary difficulty levels appropriately. All content must be in English."
 )
 

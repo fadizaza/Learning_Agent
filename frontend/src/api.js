@@ -41,10 +41,10 @@ export function getQuiz(sessionId, moduleIndex, moduleTitle, lessonContent, lang
   });
 }
 
-export function submitQuiz(sessionId, moduleIndex, questions, userAnswers, correctAnswers, language = 'ar') {
+export function submitQuiz(sessionId, moduleIndex, questions, userAnswers, correctAnswers, language = 'ar', retryCount = 0) {
   return api('/api/evaluate', {
     method: 'POST',
-    body: JSON.stringify({ session_id: sessionId, module_index: moduleIndex, questions, user_answers: userAnswers, correct_answers: correctAnswers, language }),
+    body: JSON.stringify({ session_id: sessionId, module_index: moduleIndex, questions, user_answers: userAnswers, correct_answers: correctAnswers, language, retry_count: retryCount }),
   });
 }
 
