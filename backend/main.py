@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import time
 
 if sys.platform == 'win32':
     try:
@@ -36,7 +37,9 @@ from agents import (
     generate_lesson,
     generate_quiz,
     evaluate_answers,
+    check_content_quality,
 )
+from logger import LessonLogger, extract_lesson_stats, extract_quiz_stats
 
 UNSPLASH_ACCESS_KEY = os.getenv("UNSPLASH_ACCESS_KEY", "")
 
@@ -225,29 +228,72 @@ async def get_lesson(req: LessonRequest):
     grade, subject, topic, level, goals = session["grade"], session["subject"], session["topic"], session["level"], session.get("goals", "")
     curriculum = session.get("curriculum", "")
 
+    log = LessonLogger(
+        session_id=req.session_id,
+        module_index=req.module_index,
+        module_title=req.module_title,
+        request_params={"grade": grade, "subject": subject, "topic": topic, "level": level, "language": lang, "curriculum": curriculum, "goals": goals},
+    )
+
     content_hash = compute_content_hash(grade, subject, topic, level, goals, lang, curriculum)
 
     cached = get_cached_lesson_by_content(content_hash, req.module_index)
     if cached:
+        log.set_final_result(status="cached_from_content_hash")
+        log.save()
         return cached
 
     cached = get_cached_lesson(req.session_id, req.module_index)
     if cached:
+        log.set_final_result(status="cached_from_session")
+        log.save()
         return cached
 
     cached = find_cached_lesson_by_params(grade, subject, topic, level, goals, req.module_index, lang, curriculum)
     if cached:
         save_lesson_to_cache(content_hash, req.module_index, json.dumps(cached))
+        log.set_final_result(status="cached_from_params")
+        log.save()
         return cached
 
     try:
-        lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang, curriculum)
+        lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang, curriculum, logger=log)
     except Exception as e:
+        log.set_final_result(status="error", word_count=0)
+        log.save()
         raise HTTPException(status_code=500, detail=f"{msgs['lesson_failed']}: {e}")
+
+    quality = await check_content_quality(lesson, "lesson", lang, logger=log)
+    if not quality.get("is_approved", True):
+        issues = quality.get("issues", [])
+        suggestions = quality.get("suggestions", [])
+        retry_feedback = (
+            f"Quality issues found:\n" + "\n".join(f"- {i}" for i in issues)
+            + f"\n\nSuggestions:\n" + "\n".join(f"- {s}" for s in suggestions)
+        ) if lang == "en" else (
+            f"مشاكل في جودة المحتوى:\n" + "\n".join(f"- {i}" for i in issues)
+            + f"\n\nاقتراحات للتحسين:\n" + "\n".join(f"- {s}" for s in suggestions)
+        )
+        try:
+            lesson = await generate_lesson(
+                session["grade"], session["subject"], session["topic"], session["level"],
+                req.module_title, session.get("goals", ""), lang, curriculum, logger=log,
+                quality_feedback=retry_feedback
+            )
+        except Exception:
+            pass
+
+    t_start = time.time()
     lesson = await resolve_images(lesson)
+    t_images = int((time.time() - t_start) * 1000)
+
     lesson_json = json.dumps(lesson)
     save_lesson_to_cache(content_hash, req.module_index, lesson_json)
     save_lesson(req.session_id, req.module_index, lesson_json)
+
+    stats = extract_lesson_stats(lesson)
+    log.set_final_result(status="success", **stats)
+    log.save()
     return lesson
 
 
@@ -259,10 +305,40 @@ async def get_quiz(req: QuizRequest):
     lang = session.get("language", "ar")
     msgs = API_ERROR_MESSAGES[lang]
     curriculum = session.get("curriculum", "")
+
+    log = LessonLogger(
+        session_id=req.session_id,
+        module_index=req.module_index,
+        module_title=req.module_title,
+        request_params={"topic": session["topic"], "level": session["level"], "language": lang, "curriculum": curriculum},
+    )
+
     try:
-        quiz = await generate_quiz(session["topic"], session["level"], req.lesson_content, lang, curriculum)
+        quiz = await generate_quiz(session["topic"], session["level"], req.lesson_content, lang, curriculum, logger=log)
     except Exception as e:
+        log.set_final_result(status="error")
+        log.save()
         raise HTTPException(status_code=500, detail=f"{msgs['quiz_failed']}: {e}")
+
+    quality = await check_content_quality(quiz, "quiz", lang, logger=log)
+    if not quality.get("is_approved", True):
+        issues = quality.get("issues", [])
+        suggestions = quality.get("suggestions", [])
+        retry_feedback = (
+            f"Quality issues found:\n" + "\n".join(f"- {i}" for i in issues)
+            + f"\n\nSuggestions:\n" + "\n".join(f"- {s}" for s in suggestions)
+        ) if lang == "en" else (
+            f"مشاكل في جودة المحتوى:\n" + "\n".join(f"- {i}" for i in issues)
+            + f"\n\nاقتراحات للتحسين:\n" + "\n".join(f"- {s}" for s in suggestions)
+        )
+        try:
+            quiz = await generate_quiz(session["topic"], session["level"], req.lesson_content, lang, curriculum, logger=log, quality_feedback=retry_feedback)
+        except Exception:
+            pass
+
+    stats = extract_quiz_stats(quiz)
+    log.set_final_result(status="success", **stats)
+    log.save()
     return quiz
 
 

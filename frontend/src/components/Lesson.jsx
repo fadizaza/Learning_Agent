@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { getLesson, getQuiz, getTTS } from '../api';
+import LoadingOverlay from './LoadingOverlay';
 
 const CARD_COLORS = ['card-blue', 'card-green', 'card-orange', 'card-pink', 'card-purple'];
 
@@ -294,7 +295,18 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
     }
   };
 
-  if (loading) return <div className="spinner" />;
+  if (loading) {
+    const p = t.loading.pipeline;
+    return (
+      <LoadingOverlay
+        steps={[
+          { agentName: p.lesson1.agent, message: p.lesson1.message, subMessage: p.lesson1.sub, shortLabel: p.lesson1.short, icon: '📝', duration: 10000 },
+          { agentName: p.lesson2.agent, message: p.lesson2.message, subMessage: p.lesson2.sub, shortLabel: p.lesson2.short, icon: '🔍', duration: 8000 },
+          { agentName: p.lesson3.agent, message: p.lesson3.message, subMessage: p.lesson3.sub, shortLabel: p.lesson3.short, icon: '✅', duration: 8000 },
+        ]}
+      />
+    );
+  }
   if (error) return (
     <div className="flash-card card-pink">
       <p style={{ color: '#ea4335' }}>{error}</p>
@@ -425,6 +437,18 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
           {quizLoading ? t.lesson.loadingQuiz : t.lesson.startQuiz}
         </button>
       </div>
+
+      {quizLoading && (() => {
+        const p = t.loading.pipeline;
+        return (
+          <LoadingOverlay
+            steps={[
+              { agentName: p.quiz1.agent, message: p.quiz1.message, subMessage: p.quiz1.sub, shortLabel: p.quiz1.short, icon: '🧪', duration: 8000 },
+              { agentName: p.quiz2.agent, message: p.quiz2.message, subMessage: p.quiz2.sub, shortLabel: p.quiz2.short, icon: '✅', duration: 8000 },
+            ]}
+          />
+        );
+      })()}
     </div>
   );
 }

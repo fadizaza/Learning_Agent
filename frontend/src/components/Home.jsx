@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { startSession } from '../api';
+import LoadingOverlay from './LoadingOverlay';
 
 export default function Home({ onStart, language, t }) {
   const [grade, setGrade] = useState('');
@@ -27,6 +28,18 @@ export default function Home({ onStart, language, t }) {
   };
 
   const isValid = grade && subject && topic.trim();
+
+  if (loading) {
+    const p = t.loading.pipeline;
+    return (
+      <LoadingOverlay
+        steps={[
+          { agentName: p.syllabus1.agent, message: p.syllabus1.message, subMessage: p.syllabus1.sub, shortLabel: p.syllabus1.short, icon: '🤖', duration: 8000 },
+          { agentName: p.syllabus2.agent, message: p.syllabus2.message, subMessage: p.syllabus2.sub, shortLabel: p.syllabus2.short, icon: '🔍', duration: 8000 },
+        ]}
+      />
+    );
+  }
 
   return (
     <div>
@@ -109,7 +122,7 @@ export default function Home({ onStart, language, t }) {
 
           {error && <p style={{ color: '#ea4335', fontSize: 14, marginBottom: 12 }}>{error}</p>}
           <button type="submit" className="btn btn-primary" disabled={loading || !isValid}>
-            {loading ? t.home.loading : t.home.submit}
+            {t.home.submit}
           </button>
         </form>
       </div>
