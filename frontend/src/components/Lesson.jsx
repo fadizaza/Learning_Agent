@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { getLesson, getQuiz, getTTS } from '../api';
+import { getTTS } from '../api';
 import LoadingOverlay from './LoadingOverlay';
+import usePipelineStream from '../hooks/usePipelineStream';
 
 const CARD_COLORS = ['card-blue', 'card-green', 'card-orange', 'card-pink', 'card-purple'];
 
@@ -124,6 +125,8 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
   const audioRef = useRef(null);
   const sectionAudioRef = useRef(null);
 
+  const { pipelineState, startLessonStream, startQuizStream } = usePipelineStream();
+
   const stopListening = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -192,19 +195,22 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
     stopSectionSpeech();
   }, [currentCard]);
 
+  useEffect(() => {
+    if (pipelineState.isComplete && pipelineState.result) {
+      setLesson(pipelineState.result);
+      onLessonReady(pipelineState.result);
+      setSections(parseSections(pipelineState.result.content || '', pipelineState.result.sections_images || {}));
+      setLoading(false);
+    } else if (pipelineState.error) {
+      setError(pipelineState.error);
+      setLoading(false);
+    }
+  }, [pipelineState.isComplete, pipelineState.result, pipelineState.error]);
+
   const load = async () => {
     setLoading(true);
     setError('');
-    try {
-      const l = await getLesson(session.session_id, module.index, module.title, language);
-      setLesson(l);
-      onLessonReady(l);
-      setSections(parseSections(l.content || '', l.sections_images || {}));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    startLessonStream(session.session_id, module.index, module.title, language);
   };
 
   const goTo = (index) => {
@@ -286,23 +292,32 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
     setQuizLoading(true);
     try {
       const content = lesson.content || JSON.stringify(lesson);
-      const q = await getQuiz(session.session_id, module.index, module.title, content, language);
-      onStartQuiz(q);
+      startQuizStream(session.session_id, module.index, module.title, content, language);
     } catch (err) {
       setError(err.message);
-    } finally {
       setQuizLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (quizLoading && pipelineState.isComplete && pipelineState.result) {
+      onStartQuiz(pipelineState.result);
+      setQuizLoading(false);
+    } else if (quizLoading && pipelineState.error) {
+      setError(pipelineState.error);
+      setQuizLoading(false);
+    }
+  }, [quizLoading, pipelineState.isComplete, pipelineState.result, pipelineState.error]);
+
   if (loading) {
-    const p = t.loading.pipeline;
     return (
       <LoadingOverlay
+        pipelineState={pipelineState}
+        t={t}
         steps={[
-          { agentName: p.lesson1.agent, message: p.lesson1.message, subMessage: p.lesson1.sub, shortLabel: p.lesson1.short, icon: '📝', duration: 10000 },
-          { agentName: p.lesson2.agent, message: p.lesson2.message, subMessage: p.lesson2.sub, shortLabel: p.lesson2.short, icon: '🔍', duration: 8000 },
-          { agentName: p.lesson3.agent, message: p.lesson3.message, subMessage: p.lesson3.sub, shortLabel: p.lesson3.short, icon: '✅', duration: 8000 },
+          { agentName: t.loading.pipeline.lesson1.agent, message: t.loading.pipeline.lesson1.message, subMessage: t.loading.pipeline.lesson1.sub, shortLabel: t.loading.pipeline.lesson1.short, icon: '📝', duration: 10000 },
+          { agentName: t.loading.pipeline.lesson2.agent, message: t.loading.pipeline.lesson2.message, subMessage: t.loading.pipeline.lesson2.sub, shortLabel: t.loading.pipeline.lesson2.short, icon: '🔍', duration: 8000 },
+          { agentName: t.loading.pipeline.lesson3.agent, message: t.loading.pipeline.lesson3.message, subMessage: t.loading.pipeline.lesson3.sub, shortLabel: t.loading.pipeline.lesson3.short, icon: '✅', duration: 8000 },
         ]}
       />
     );
@@ -438,17 +453,16 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
         </button>
       </div>
 
-      {quizLoading && (() => {
-        const p = t.loading.pipeline;
-        return (
-          <LoadingOverlay
-            steps={[
-              { agentName: p.quiz1.agent, message: p.quiz1.message, subMessage: p.quiz1.sub, shortLabel: p.quiz1.short, icon: '🧪', duration: 8000 },
-              { agentName: p.quiz2.agent, message: p.quiz2.message, subMessage: p.quiz2.sub, shortLabel: p.quiz2.short, icon: '✅', duration: 8000 },
-            ]}
-          />
-        );
-      })()}
+      {quizLoading && (
+        <LoadingOverlay
+          pipelineState={pipelineState}
+          t={t}
+          steps={[
+            { agentName: t.loading.pipeline.quiz1.agent, message: t.loading.pipeline.quiz1.message, subMessage: t.loading.pipeline.quiz1.sub, shortLabel: t.loading.pipeline.quiz1.short, icon: '🧪', duration: 8000 },
+            { agentName: t.loading.pipeline.quiz2.agent, message: t.loading.pipeline.quiz2.message, subMessage: t.loading.pipeline.quiz2.sub, shortLabel: t.loading.pipeline.quiz2.short, icon: '✅', duration: 8000 },
+          ]}
+        />
+      )}
     </div>
   );
 }

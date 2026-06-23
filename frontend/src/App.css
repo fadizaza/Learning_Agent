@@ -1042,3 +1042,224 @@ body {
 .loading-step-dot.done .step-label {
   color: #155724;
 }
+
+/* ---- Learning Outcomes ---- */
+.loading-learning-outcomes {
+  margin-bottom: 20px;
+  text-align: left;
+  background: rgba(102, 126, 234, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.loading-lo-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.loading-lo-icon {
+  font-size: 18px;
+}
+
+.loading-lo-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #5a2d82;
+}
+
+.loading-lo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.loading-lo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: #555;
+  line-height: 1.4;
+}
+
+.loading-lo-check {
+  color: #2ecc71;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.loading-lo-text {
+  flex: 1;
+}
+
+/* ---- Completed Steps ---- */
+.loading-completed-steps {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loading-completed-step {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 12px 14px;
+  border-left: 4px solid #ccc;
+  text-align: left;
+}
+
+.loading-completed-step.success {
+  border-left-color: #2ecc71;
+  background: #f0fff4;
+}
+
+.loading-completed-step.rejected {
+  border-left-color: #e74c3c;
+  background: #fff5f5;
+}
+
+.completed-step-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.completed-step-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.success .completed-step-icon {
+  background: #2ecc71;
+  color: #fff;
+}
+
+.rejected .completed-step-icon {
+  background: #e74c3c;
+  color: #fff;
+}
+
+.completed-step-agent {
+  font-weight: 700;
+  font-size: 14px;
+  color: #333;
+}
+
+.completed-step-score {
+  font-weight: 700;
+  font-size: 13px;
+  color: #764ba2;
+  margin-left: auto;
+}
+
+.completed-step-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.completed-step-status.approved,
+.completed-step-status.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.completed-step-status.rejected {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* ---- Criteria Bars ---- */
+.completed-step-criteria {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.criteria-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.criteria-name {
+  font-size: 12px;
+  color: #666;
+  min-width: 100px;
+  text-transform: capitalize;
+}
+
+.criteria-bar-container {
+  flex: 1;
+  height: 8px;
+  background: #e8e0f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.criteria-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.criteria-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: #764ba2;
+  min-width: 35px;
+  text-align: right;
+}
+
+/* ---- Issues ---- */
+.completed-step-issues {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.issues-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e74c3c;
+}
+
+.issue-item {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* RTL overrides for learning outcomes */
+[dir="rtl"] .loading-learning-outcomes { text-align: right; }
+[dir="rtl"] .loading-completed-step { border-left: none; border-right: 4px solid #ccc; }
+[dir="rtl"] .loading-completed-step.success { border-right-color: #2ecc71; }
+[dir="rtl"] .loading-completed-step.rejected { border-right-color: #e74c3c; }
+[dir="rtl"] .completed-step-score { margin-left: 0; margin-right: auto; }
+[dir="rtl"] .criteria-name { text-align: right; }
+[dir="rtl"] .criteria-value { text-align: left; }

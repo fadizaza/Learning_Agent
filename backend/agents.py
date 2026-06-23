@@ -92,7 +92,7 @@ config_quality = types.GenerateContentConfig(temperature=0.3, max_output_tokens=
 PLANNER_INSTRUCTION_AR = (
     "أنت خبير في تصميم الدروس التعليمية. بناءً على الصف والمادة والموضوع ومستوى المتعلم "
     "(مبتدئ، متوسط، متقدم) والمنهج التعليمي وأهدافه، قم بإنشاء درس تعليمي منظم.\n\n"
-    "إذا تم تحديد منهج تعليمي محدد، يجب أن تكون الوحدات والمواضيع متوافقة مع معاييره ونواتج تعلمه.\n\n"
+    "إذا تم تحديد منهاج تعليمي محدد، يجب أن تكون الوحدات والمواضيع متوافقة مع معاييره ونواتج تعلمه.\n\n"
     "ارجع JSON صالحًا فقط بهذا الهيكل تمامًا، بدون markdown أو code fences:\n"
     "{\n"
     '  "topic": "<الموضوع>",\n'
@@ -140,8 +140,9 @@ PLANNER_INSTRUCTION_EN = (
 )
 
 CONTENT_INSTRUCTION_AR = (
-    "أنت معلم خبير. بناءً على الصف والمادة والموضوع ومستوى المتعلم وعنوان الوحدة والمنهج التعليمي وأهدافه، "
-    "قم بإنشاء محتوى درس جذاب وعميق.\n\n"
+    "أنت معلم خبير. بناءً على الصف والمادة والموضوع ومستوى المتعلم وعنوان الوحدة ووصفها "
+    "ونتائج التعلم المحددة للوحدة والمنهج التعليمي وأهدافه، قم بإنشاء محتوى درس جذاب وعميق.\n\n"
+    "مهم جداً: يجب أن يغطي المحتوى المُنشأ جميع نتائج التعلم المحددة للوحدة. راجع نتائج التعلم وتأكد من أن كل نتيجة مُغطاة في المحتوى.\n\n"
     "إذا تم تحديد منهج تعليمي محدد، يجب أن يكون المحتوى متوافقًا مع معاييره ونواتج تعلمه وأسلوب عرضه.\n\n"
     "ارجع JSON صالحًا فقط بهذا الهيكل تمامًا، بدون markdown أو code fences:\n"
     "{\n"
@@ -172,7 +173,10 @@ CONTENT_INSTRUCTION_AR = (
 
 CONTENT_INSTRUCTION_EN = (
     "You are an expert teacher. Based on the grade, subject, topic, learner level, module title, "
-    "the curriculum framework, and their goals, create engaging, in-depth lesson content.\n\n"
+    "module description, the specific learning outcomes for this module, the curriculum framework, "
+    "and their goals, create engaging, in-depth lesson content.\n\n"
+    "VERY IMPORTANT: The generated content MUST cover ALL specified learning outcomes for this module. "
+    "Review the learning outcomes and ensure each one is addressed in your content.\n\n"
     "If a specific curriculum is provided, the content must align with its standards, learning outcomes, and presentation style.\n\n"
     "Return only valid JSON with this exact structure, no markdown or code fences:\n"
     "{\n"
@@ -709,7 +713,7 @@ async def generate_syllabus(grade: str, subject: str, topic: str, level: str, go
     return syllabus
 
 
-async def generate_lesson(grade: str, subject: str, topic: str, level: str, module_title: str, goals: str = "", language: str = "ar", curriculum: str = "", logger=None, quality_feedback: str = "") -> dict:
+async def generate_lesson(grade: str, subject: str, topic: str, level: str, module_title: str, goals: str = "", language: str = "ar", curriculum: str = "", logger=None, quality_feedback: str = "", module_description: str = "", learning_outcomes: list = None) -> dict:
     runner = _get_runner(language, CONTENT_RUNNER_AR, CONTENT_RUNNER_EN)
     agent_name = "ContentAgent_AR" if language == "ar" else "ContentAgent_EN"
     if language == "en":
@@ -717,6 +721,13 @@ async def generate_lesson(grade: str, subject: str, topic: str, level: str, modu
             f"Grade: {grade}\nSubject: {subject}\nTopic: {topic}\nLearner level: {level}\n"
             f"Module title: {module_title}\n"
         )
+        if module_description:
+            prompt += f"Module description: {module_description}\n"
+        if learning_outcomes:
+            prompt += "Learning outcomes for this module:\n"
+            for i, outcome in enumerate(learning_outcomes, 1):
+                prompt += f"  {i}. {outcome}\n"
+            prompt += "\nYou MUST create content that covers ALL of the above learning outcomes.\n"
         if curriculum:
             prompt += f"Curriculum: {curriculum}\n"
         if goals:
@@ -730,6 +741,13 @@ async def generate_lesson(grade: str, subject: str, topic: str, level: str, modu
             f"الصف: {grade}\nالمادة: {subject}\nالموضوع: {topic}\nمستوى المتعلم: {level}\n"
             f"عنوان الوحدة: {module_title}\n"
         )
+        if module_description:
+            prompt += f"وصف الوحدة: {module_description}\n"
+        if learning_outcomes:
+            prompt += "نتائج التعلم لهذه الوحدة:\n"
+            for i, outcome in enumerate(learning_outcomes, 1):
+                prompt += f"  {i}. {outcome}\n"
+            prompt += "\nيجب عليك إنشاء محتوى يغطي جميع نتائج التعلم أعلاه.\n"
         if curriculum:
             prompt += f"المنهاج التعليمي: {curriculum}\n"
         if goals:
@@ -834,9 +852,14 @@ async def validate_content(content: dict, grade: str, subject: str, topic: str, 
             f"تحقق من التوافق مع المنهج."
         )
     try:
-        return await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="validate_content")
+        result = await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="validate_content")
+        if "criteria" not in result:
+            result["criteria"] = {}
+        if "is_aligned" not in result:
+            result["is_aligned"] = result.get("score", 100) >= 70
+        return result
     except Exception:
-        return {"is_aligned": True, "score": 100, "issues": [], "suggestions": []}
+        return {"is_aligned": True, "score": 100, "criteria": {}, "issues": [], "suggestions": []}
 
 
 async def check_content_quality(content: dict, content_type: str, language: str = "ar", logger=None) -> dict:
@@ -856,6 +879,11 @@ async def check_content_quality(content: dict, content_type: str, language: str 
             f"قم بتقييم جودة هذا المحتوى التعليمي."
         )
     try:
-        return await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="check_quality")
+        result = await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="check_quality")
+        if "criteria" not in result:
+            result["criteria"] = {}
+        if "is_approved" not in result:
+            result["is_approved"] = result.get("overall_score", 80) >= 70
+        return result
     except Exception:
-        return {"overall_score": 80, "depth_score": 80, "clarity_score": 80, "engagement_score": 80, "completeness_score": 80, "issues": [], "suggestions": [], "is_approved": True}
+        return {"overall_score": 80, "depth_score": 80, "clarity_score": 80, "engagement_score": 80, "completeness_score": 80, "criteria": {}, "issues": [], "suggestions": [], "is_approved": True}

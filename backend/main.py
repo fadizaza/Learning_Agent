@@ -14,6 +14,7 @@ import uuid
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from database import (
@@ -228,6 +229,12 @@ async def get_lesson(req: LessonRequest):
     grade, subject, topic, level, goals = session["grade"], session["subject"], session["topic"], session["level"], session.get("goals", "")
     curriculum = session.get("curriculum", "")
 
+    syllabus = json.loads(session["syllabus"]) if session["syllabus"] else {}
+    modules = syllabus.get("modules", [])
+    module_data = modules[req.module_index] if req.module_index < len(modules) else {}
+    module_description = module_data.get("description", "")
+    learning_outcomes = module_data.get("learning_outcomes", [])
+
     log = LessonLogger(
         session_id=req.session_id,
         module_index=req.module_index,
@@ -257,7 +264,7 @@ async def get_lesson(req: LessonRequest):
         return cached
 
     try:
-        lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang, curriculum, logger=log)
+        lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang, curriculum, logger=log, module_description=module_description, learning_outcomes=learning_outcomes)
     except Exception as e:
         log.set_final_result(status="error", word_count=0)
         log.save()
@@ -278,7 +285,8 @@ async def get_lesson(req: LessonRequest):
             lesson = await generate_lesson(
                 session["grade"], session["subject"], session["topic"], session["level"],
                 req.module_title, session.get("goals", ""), lang, curriculum, logger=log,
-                quality_feedback=retry_feedback
+                quality_feedback=retry_feedback, module_description=module_description,
+                learning_outcomes=learning_outcomes
             )
         except Exception:
             pass
@@ -340,6 +348,255 @@ async def get_quiz(req: QuizRequest):
     log.set_final_result(status="success", **stats)
     log.save()
     return quiz
+
+
+def _sse_event(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@app.post("/api/lessons/stream")
+async def stream_lesson(req: LessonRequest):
+    session = get_session(req.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    lang = session.get("language", "ar")
+    msgs = API_ERROR_MESSAGES[lang]
+    grade, subject, topic, level, goals = session["grade"], session["subject"], session["topic"], session["level"], session.get("goals", "")
+    curriculum = session.get("curriculum", "")
+
+    syllabus = json.loads(session["syllabus"]) if session["syllabus"] else {}
+    modules = syllabus.get("modules", [])
+    module_data = modules[req.module_index] if req.module_index < len(modules) else {}
+    module_description = module_data.get("description", "")
+    learning_outcomes = module_data.get("learning_outcomes", [])
+
+    log = LessonLogger(
+        session_id=req.session_id,
+        module_index=req.module_index,
+        module_title=req.module_title,
+        request_params={"grade": grade, "subject": subject, "topic": topic, "level": level, "language": lang, "curriculum": curriculum, "goals": goals},
+    )
+
+    content_hash = compute_content_hash(grade, subject, topic, level, goals, lang, curriculum)
+
+    cached = get_cached_lesson_by_content(content_hash, req.module_index)
+    if cached:
+        log.set_final_result(status="cached_from_content_hash")
+        log.save()
+        async def cached_response():
+            yield _sse_event("lesson_ready", {"lesson": cached, "learning_outcomes": learning_outcomes})
+        return StreamingResponse(cached_response(), media_type="text/event-stream")
+
+    cached = get_cached_lesson(req.session_id, req.module_index)
+    if cached:
+        log.set_final_result(status="cached_from_session")
+        log.save()
+        async def cached_response2():
+            yield _sse_event("lesson_ready", {"lesson": cached, "learning_outcomes": learning_outcomes})
+        return StreamingResponse(cached_response2(), media_type="text/event-stream")
+
+    cached = find_cached_lesson_by_params(grade, subject, topic, level, goals, req.module_index, lang, curriculum)
+    if cached:
+        save_lesson_to_cache(content_hash, req.module_index, json.dumps(cached))
+        log.set_final_result(status="cached_from_params")
+        log.save()
+        async def cached_response3():
+            yield _sse_event("lesson_ready", {"lesson": cached, "learning_outcomes": learning_outcomes})
+        return StreamingResponse(cached_response3(), media_type="text/event-stream")
+
+    async def generate_stream():
+        yield _sse_event("pipeline_started", {
+            "learning_outcomes": learning_outcomes,
+            "module_description": module_description,
+            "module_title": req.module_title,
+            "steps": ["content", "validator", "quality"],
+        })
+
+        yield _sse_event("agent_started", {
+            "agent": "ContentAgent",
+            "step": "content",
+            "message": "Generating lesson content..." if lang == "en" else "جاري إنشاء محتوى الدرس...",
+        })
+
+        try:
+            lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang, curriculum, logger=log, module_description=module_description, learning_outcomes=learning_outcomes)
+        except Exception as e:
+            log.set_final_result(status="error", word_count=0)
+            log.save()
+            yield _sse_event("error", {"message": f"{msgs['lesson_failed']}: {e}"})
+            return
+
+        yield _sse_event("agent_completed", {
+            "agent": "ContentAgent",
+            "step": "content",
+            "result": "success",
+        })
+
+        yield _sse_event("agent_started", {
+            "agent": "ValidatorAgent",
+            "step": "validator",
+            "message": "Validating curriculum alignment..." if lang == "en" else "جاري التحقق من توافق المنهج...",
+        })
+
+        quality = await check_content_quality(lesson, "lesson", lang, logger=log)
+        quality_criteria = quality.get("criteria", {})
+        quality_score = quality.get("overall_score", 80)
+        quality_approved = quality.get("is_approved", True)
+
+        yield _sse_event("agent_completed", {
+            "agent": "QualityAgent",
+            "step": "quality",
+            "result": "approved" if quality_approved else "rejected",
+            "score": quality_score,
+            "criteria": quality_criteria,
+            "issues": quality.get("issues", []),
+            "suggestions": quality.get("suggestions", []),
+        })
+
+        if not quality_approved:
+            issues = quality.get("issues", [])
+            suggestions = quality.get("suggestions", [])
+            retry_feedback = (
+                f"Quality issues found:\n" + "\n".join(f"- {i}" for i in issues)
+                + f"\n\nSuggestions:\n" + "\n".join(f"- {s}" for s in suggestions)
+            ) if lang == "en" else (
+                f"مشاكل في جودة المحتوى:\n" + "\n".join(f"- {i}" for i in issues)
+                + f"\n\nاقتراحات للتحسين:\n" + "\n".join(f"- {s}" for s in suggestions)
+            )
+            try:
+                lesson = await generate_lesson(
+                    session["grade"], session["subject"], session["topic"], session["level"],
+                    req.module_title, session.get("goals", ""), lang, curriculum, logger=log,
+                    quality_feedback=retry_feedback, module_description=module_description,
+                    learning_outcomes=learning_outcomes
+                )
+                yield _sse_event("agent_started", {
+                    "agent": "ContentAgent",
+                    "step": "content_retry",
+                    "message": "Regenerating content based on quality feedback..." if lang == "en" else "جاري إعادة إنشاء المحتوى بناءً على ملاحظات الجودة...",
+                })
+                yield _sse_event("agent_completed", {
+                    "agent": "ContentAgent",
+                    "step": "content_retry",
+                    "result": "success",
+                })
+            except Exception:
+                pass
+
+        t_start = time.time()
+        lesson = await resolve_images(lesson)
+        t_images = int((time.time() - t_start) * 1000)
+
+        lesson_json = json.dumps(lesson)
+        save_lesson_to_cache(content_hash, req.module_index, lesson_json)
+        save_lesson(req.session_id, req.module_index, lesson_json)
+
+        stats = extract_lesson_stats(lesson)
+        log.set_final_result(status="success", **stats)
+        log.save()
+
+        yield _sse_event("lesson_ready", {"lesson": lesson, "learning_outcomes": learning_outcomes})
+
+    return StreamingResponse(generate_stream(), media_type="text/event-stream")
+
+
+@app.post("/api/quiz/stream")
+async def stream_quiz(req: QuizRequest):
+    session = get_session(req.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    lang = session.get("language", "ar")
+    msgs = API_ERROR_MESSAGES[lang]
+    curriculum = session.get("curriculum", "")
+
+    log = LessonLogger(
+        session_id=req.session_id,
+        module_index=req.module_index,
+        module_title=req.module_title,
+        request_params={"topic": session["topic"], "level": session["level"], "language": lang, "curriculum": curriculum},
+    )
+
+    async def generate_stream():
+        yield _sse_event("pipeline_started", {
+            "learning_outcomes": [],
+            "module_title": req.module_title,
+            "steps": ["quiz", "quality"],
+        })
+
+        yield _sse_event("agent_started", {
+            "agent": "QuizAgent",
+            "step": "quiz",
+            "message": "Creating quiz questions..." if lang == "en" else "جاري إنشاء أسئلة الاختبار...",
+        })
+
+        try:
+            quiz = await generate_quiz(session["topic"], session["level"], req.lesson_content, lang, curriculum, logger=log)
+        except Exception as e:
+            log.set_final_result(status="error")
+            log.save()
+            yield _sse_event("error", {"message": f"{msgs['quiz_failed']}: {e}"})
+            return
+
+        yield _sse_event("agent_completed", {
+            "agent": "QuizAgent",
+            "step": "quiz",
+            "result": "success",
+        })
+
+        yield _sse_event("agent_started", {
+            "agent": "QualityAgent",
+            "step": "quality",
+            "message": "Checking quiz quality..." if lang == "en" else "جاري فحص جودة الأسئلة...",
+        })
+
+        quality = await check_content_quality(quiz, "quiz", lang, logger=log)
+        quality_criteria = quality.get("criteria", {})
+        quality_score = quality.get("overall_score", 80)
+        quality_approved = quality.get("is_approved", True)
+
+        yield _sse_event("agent_completed", {
+            "agent": "QualityAgent",
+            "step": "quality",
+            "result": "approved" if quality_approved else "rejected",
+            "score": quality_score,
+            "criteria": quality_criteria,
+            "issues": quality.get("issues", []),
+            "suggestions": quality.get("suggestions", []),
+        })
+
+        if not quality_approved:
+            issues = quality.get("issues", [])
+            suggestions = quality.get("suggestions", [])
+            retry_feedback = (
+                f"Quality issues found:\n" + "\n".join(f"- {i}" for i in issues)
+                + f"\n\nSuggestions:\n" + "\n".join(f"- {s}" for s in suggestions)
+            ) if lang == "en" else (
+                f"مشاكل في جودة المحتوى:\n" + "\n".join(f"- {i}" for i in issues)
+                + f"\n\nاقتراحات للتحسين:\n" + "\n".join(f"- {s}" for s in suggestions)
+            )
+            try:
+                quiz = await generate_quiz(session["topic"], session["level"], req.lesson_content, lang, curriculum, logger=log, quality_feedback=retry_feedback)
+                yield _sse_event("agent_started", {
+                    "agent": "QuizAgent",
+                    "step": "quiz_retry",
+                    "message": "Regenerating quiz based on quality feedback..." if lang == "en" else "جاري إعادة إنشاء الاختبار بناءً على ملاحظات الجودة...",
+                })
+                yield _sse_event("agent_completed", {
+                    "agent": "QuizAgent",
+                    "step": "quiz_retry",
+                    "result": "success",
+                })
+            except Exception:
+                pass
+
+        stats = extract_quiz_stats(quiz)
+        log.set_final_result(status="success", **stats)
+        log.save()
+
+        yield _sse_event("quiz_ready", {"quiz": quiz})
+
+    return StreamingResponse(generate_stream(), media_type="text/event-stream")
 
 
 @app.post("/api/evaluate")
