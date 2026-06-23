@@ -270,26 +270,42 @@ async def get_lesson(req: LessonRequest):
         log.save()
         raise HTTPException(status_code=500, detail=f"{msgs['lesson_failed']}: {e}")
 
-    quality = await check_content_quality(lesson, "lesson", lang, logger=log)
-    if not quality.get("is_approved", True):
-        issues = quality.get("issues", [])
-        suggestions = quality.get("suggestions", [])
-        retry_feedback = (
-            f"Quality issues found:\n" + "\n".join(f"- {i}" for i in issues)
-            + f"\n\nSuggestions:\n" + "\n".join(f"- {s}" for s in suggestions)
-        ) if lang == "en" else (
-            f"مشاكل في جودة المحتوى:\n" + "\n".join(f"- {i}" for i in issues)
-            + f"\n\nاقتراحات للتحسين:\n" + "\n".join(f"- {s}" for s in suggestions)
-        )
-        try:
-            lesson = await generate_lesson(
-                session["grade"], session["subject"], session["topic"], session["level"],
-                req.module_title, session.get("goals", ""), lang, curriculum, logger=log,
-                quality_feedback=retry_feedback, module_description=module_description,
-                learning_outcomes=learning_outcomes
+    best_lesson = lesson
+    best_score = 0
+    all_feedback = ""
+
+    for attempt in range(3):
+        quality = await check_content_quality(lesson, "lesson", lang, logger=log)
+        quality_score = quality.get("overall_score", 0)
+
+        if quality_score > best_score:
+            best_score = quality_score
+            best_lesson = lesson
+
+        if quality.get("is_approved", True):
+            break
+
+        if attempt < 2:
+            issues = quality.get("issues", [])
+            suggestions = quality.get("suggestions", [])
+            all_feedback = (
+                f"Quality issues found:\n" + "\n".join(f"- {i}" for i in issues)
+                + f"\n\nSuggestions:\n" + "\n".join(f"- {s}" for s in suggestions)
+            ) if lang == "en" else (
+                f"مشاكل في جودة المحتوى:\n" + "\n".join(f"- {i}" for i in issues)
+                + f"\n\nاقتراحات للتحسين:\n" + "\n".join(f"- {s}" for s in suggestions)
             )
-        except Exception:
-            pass
+            try:
+                lesson = await generate_lesson(
+                    session["grade"], session["subject"], session["topic"], session["level"],
+                    req.module_title, session.get("goals", ""), lang, curriculum, logger=log,
+                    quality_feedback=all_feedback, module_description=module_description,
+                    learning_outcomes=learning_outcomes
+                )
+            except Exception:
+                break
+
+    lesson = best_lesson
 
     t_start = time.time()
     lesson = await resolve_images(lesson)
@@ -328,21 +344,36 @@ async def get_quiz(req: QuizRequest):
         log.save()
         raise HTTPException(status_code=500, detail=f"{msgs['quiz_failed']}: {e}")
 
-    quality = await check_content_quality(quiz, "quiz", lang, logger=log)
-    if not quality.get("is_approved", True):
-        issues = quality.get("issues", [])
-        suggestions = quality.get("suggestions", [])
-        retry_feedback = (
-            f"Quality issues found:\n" + "\n".join(f"- {i}" for i in issues)
-            + f"\n\nSuggestions:\n" + "\n".join(f"- {s}" for s in suggestions)
-        ) if lang == "en" else (
-            f"مشاكل في جودة المحتوى:\n" + "\n".join(f"- {i}" for i in issues)
-            + f"\n\nاقتراحات للتحسين:\n" + "\n".join(f"- {s}" for s in suggestions)
-        )
-        try:
-            quiz = await generate_quiz(session["topic"], session["level"], req.lesson_content, lang, curriculum, logger=log, quality_feedback=retry_feedback)
-        except Exception:
-            pass
+    best_quiz = quiz
+    best_score = 0
+
+    for attempt in range(3):
+        quality = await check_content_quality(quiz, "quiz", lang, logger=log)
+        quality_score = quality.get("overall_score", 0)
+
+        if quality_score > best_score:
+            best_score = quality_score
+            best_quiz = quiz
+
+        if quality.get("is_approved", True):
+            break
+
+        if attempt < 2:
+            issues = quality.get("issues", [])
+            suggestions = quality.get("suggestions", [])
+            retry_feedback = (
+                f"Quality issues found:\n" + "\n".join(f"- {i}" for i in issues)
+                + f"\n\nSuggestions:\n" + "\n".join(f"- {s}" for s in suggestions)
+            ) if lang == "en" else (
+                f"مشاكل في جودة المحتوى:\n" + "\n".join(f"- {i}" for i in issues)
+                + f"\n\nاقتراحات للتحسين:\n" + "\n".join(f"- {s}" for s in suggestions)
+            )
+            try:
+                quiz = await generate_quiz(session["topic"], session["level"], req.lesson_content, lang, curriculum, logger=log, quality_feedback=retry_feedback)
+            except Exception:
+                break
+
+    quiz = best_quiz
 
     stats = extract_quiz_stats(quiz)
     log.set_final_result(status="success", **stats)
@@ -433,56 +464,76 @@ async def stream_lesson(req: LessonRequest):
             "result": "success",
         })
 
-        yield _sse_event("agent_started", {
-            "agent": "ValidatorAgent",
-            "step": "validator",
-            "message": "Validating curriculum alignment..." if lang == "en" else "جاري التحقق من توافق المنهج...",
-        })
+        best_lesson = lesson
+        best_score = 0
+        all_feedback = ""
 
-        quality = await check_content_quality(lesson, "lesson", lang, logger=log)
-        quality_criteria = quality.get("criteria", {})
-        quality_score = quality.get("overall_score", 80)
-        quality_approved = quality.get("is_approved", True)
+        for attempt in range(3):
+            yield _sse_event("agent_started", {
+                "agent": "QualityAgent",
+                "step": "quality",
+                "message": f"Checking quality (attempt {attempt + 1}/3)..." if lang == "en" else f"جاري فحص الجودة (محاولة {attempt + 1}/3)...",
+            })
 
-        yield _sse_event("agent_completed", {
-            "agent": "QualityAgent",
-            "step": "quality",
-            "result": "approved" if quality_approved else "rejected",
-            "score": quality_score,
-            "criteria": quality_criteria,
-            "issues": quality.get("issues", []),
-            "suggestions": quality.get("suggestions", []),
-        })
+            quality = await check_content_quality(lesson, "lesson", lang, logger=log)
+            quality_criteria = quality.get("criteria", {})
+            quality_score = quality.get("overall_score", 0)
+            quality_approved = quality.get("is_approved", True)
 
-        if not quality_approved:
-            issues = quality.get("issues", [])
-            suggestions = quality.get("suggestions", [])
-            retry_feedback = (
-                f"Quality issues found:\n" + "\n".join(f"- {i}" for i in issues)
-                + f"\n\nSuggestions:\n" + "\n".join(f"- {s}" for s in suggestions)
-            ) if lang == "en" else (
-                f"مشاكل في جودة المحتوى:\n" + "\n".join(f"- {i}" for i in issues)
-                + f"\n\nاقتراحات للتحسين:\n" + "\n".join(f"- {s}" for s in suggestions)
-            )
-            try:
-                lesson = await generate_lesson(
-                    session["grade"], session["subject"], session["topic"], session["level"],
-                    req.module_title, session.get("goals", ""), lang, curriculum, logger=log,
-                    quality_feedback=retry_feedback, module_description=module_description,
-                    learning_outcomes=learning_outcomes
+            if quality_score > best_score:
+                best_score = quality_score
+                best_lesson = lesson
+
+            yield _sse_event("agent_completed", {
+                "agent": "QualityAgent",
+                "step": "quality",
+                "result": "approved" if quality_approved else "rejected",
+                "score": quality_score,
+                "criteria": quality_criteria,
+                "issues": quality.get("issues", []),
+                "suggestions": quality.get("suggestions", []),
+                "attempt": attempt + 1,
+            })
+
+            if quality_approved:
+                break
+
+            if attempt < 2:
+                issues = quality.get("issues", [])
+                suggestions = quality.get("suggestions", [])
+                all_feedback = (
+                    f"Quality issues found:\n" + "\n".join(f"- {i}" for i in issues)
+                    + f"\n\nSuggestions:\n" + "\n".join(f"- {s}" for s in suggestions)
+                ) if lang == "en" else (
+                    f"مشاكل في جودة المحتوى:\n" + "\n".join(f"- {i}" for i in issues)
+                    + f"\n\nاقتراحات للتحسين:\n" + "\n".join(f"- {s}" for s in suggestions)
                 )
+
                 yield _sse_event("agent_started", {
                     "agent": "ContentAgent",
                     "step": "content_retry",
-                    "message": "Regenerating content based on quality feedback..." if lang == "en" else "جاري إعادة إنشاء المحتوى بناءً على ملاحظات الجودة...",
+                    "message": f"Regenerating content (attempt {attempt + 2}/3)..." if lang == "en" else f"جاري إعادة إنشاء المحتوى (محاولة {attempt + 2}/3)...",
+                    "attempt": attempt + 2,
                 })
+
+                try:
+                    lesson = await generate_lesson(
+                        session["grade"], session["subject"], session["topic"], session["level"],
+                        req.module_title, session.get("goals", ""), lang, curriculum, logger=log,
+                        quality_feedback=all_feedback, module_description=module_description,
+                        learning_outcomes=learning_outcomes
+                    )
+                except Exception:
+                    break
+
                 yield _sse_event("agent_completed", {
                     "agent": "ContentAgent",
                     "step": "content_retry",
                     "result": "success",
+                    "attempt": attempt + 2,
                 })
-            except Exception:
-                pass
+
+        lesson = best_lesson
 
         t_start = time.time()
         lesson = await resolve_images(lesson)
@@ -544,51 +595,70 @@ async def stream_quiz(req: QuizRequest):
             "result": "success",
         })
 
-        yield _sse_event("agent_started", {
-            "agent": "QualityAgent",
-            "step": "quality",
-            "message": "Checking quiz quality..." if lang == "en" else "جاري فحص جودة الأسئلة...",
-        })
+        best_quiz = quiz
+        best_score = 0
 
-        quality = await check_content_quality(quiz, "quiz", lang, logger=log)
-        quality_criteria = quality.get("criteria", {})
-        quality_score = quality.get("overall_score", 80)
-        quality_approved = quality.get("is_approved", True)
+        for attempt in range(3):
+            yield _sse_event("agent_started", {
+                "agent": "QualityAgent",
+                "step": "quality",
+                "message": f"Checking quiz quality (attempt {attempt + 1}/3)..." if lang == "en" else f"جاري فحص جودة الأسئلة (محاولة {attempt + 1}/3)...",
+            })
 
-        yield _sse_event("agent_completed", {
-            "agent": "QualityAgent",
-            "step": "quality",
-            "result": "approved" if quality_approved else "rejected",
-            "score": quality_score,
-            "criteria": quality_criteria,
-            "issues": quality.get("issues", []),
-            "suggestions": quality.get("suggestions", []),
-        })
+            quality = await check_content_quality(quiz, "quiz", lang, logger=log)
+            quality_criteria = quality.get("criteria", {})
+            quality_score = quality.get("overall_score", 0)
+            quality_approved = quality.get("is_approved", True)
 
-        if not quality_approved:
-            issues = quality.get("issues", [])
-            suggestions = quality.get("suggestions", [])
-            retry_feedback = (
-                f"Quality issues found:\n" + "\n".join(f"- {i}" for i in issues)
-                + f"\n\nSuggestions:\n" + "\n".join(f"- {s}" for s in suggestions)
-            ) if lang == "en" else (
-                f"مشاكل في جودة المحتوى:\n" + "\n".join(f"- {i}" for i in issues)
-                + f"\n\nاقتراحات للتحسين:\n" + "\n".join(f"- {s}" for s in suggestions)
-            )
-            try:
-                quiz = await generate_quiz(session["topic"], session["level"], req.lesson_content, lang, curriculum, logger=log, quality_feedback=retry_feedback)
+            if quality_score > best_score:
+                best_score = quality_score
+                best_quiz = quiz
+
+            yield _sse_event("agent_completed", {
+                "agent": "QualityAgent",
+                "step": "quality",
+                "result": "approved" if quality_approved else "rejected",
+                "score": quality_score,
+                "criteria": quality_criteria,
+                "issues": quality.get("issues", []),
+                "suggestions": quality.get("suggestions", []),
+                "attempt": attempt + 1,
+            })
+
+            if quality_approved:
+                break
+
+            if attempt < 2:
+                issues = quality.get("issues", [])
+                suggestions = quality.get("suggestions", [])
+                retry_feedback = (
+                    f"Quality issues found:\n" + "\n".join(f"- {i}" for i in issues)
+                    + f"\n\nSuggestions:\n" + "\n".join(f"- {s}" for s in suggestions)
+                ) if lang == "en" else (
+                    f"مشاكل في جودة المحتوى:\n" + "\n".join(f"- {i}" for i in issues)
+                    + f"\n\nاقتراحات للتحسين:\n" + "\n".join(f"- {s}" for s in suggestions)
+                )
+
                 yield _sse_event("agent_started", {
                     "agent": "QuizAgent",
                     "step": "quiz_retry",
-                    "message": "Regenerating quiz based on quality feedback..." if lang == "en" else "جاري إعادة إنشاء الاختبار بناءً على ملاحظات الجودة...",
+                    "message": f"Regenerating quiz (attempt {attempt + 2}/3)..." if lang == "en" else f"جاري إعادة إنشاء الاختبار (محاولة {attempt + 2}/3)...",
+                    "attempt": attempt + 2,
                 })
+
+                try:
+                    quiz = await generate_quiz(session["topic"], session["level"], req.lesson_content, lang, curriculum, logger=log, quality_feedback=retry_feedback)
+                except Exception:
+                    break
+
                 yield _sse_event("agent_completed", {
                     "agent": "QuizAgent",
                     "step": "quiz_retry",
                     "result": "success",
+                    "attempt": attempt + 2,
                 })
-            except Exception:
-                pass
+
+        quiz = best_quiz
 
         stats = extract_quiz_stats(quiz)
         log.set_final_result(status="success", **stats)

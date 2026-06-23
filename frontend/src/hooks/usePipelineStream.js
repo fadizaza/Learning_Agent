@@ -10,6 +10,7 @@ export default function usePipelineStream() {
     steps: [],
     currentAgent: null,
     currentStep: null,
+    currentAttempt: 1,
     completedSteps: [],
     validationResults: {},
     isComplete: false,
@@ -188,6 +189,7 @@ export default function usePipelineStream() {
           ...prev,
           currentAgent: data.agent,
           currentStep: data.step,
+          currentAttempt: data.attempt || 1,
         }));
         break;
 
@@ -201,6 +203,7 @@ export default function usePipelineStream() {
             criteria: data.criteria || {},
             issues: data.issues || [],
             suggestions: data.suggestions || [],
+            attempt: data.attempt || 1,
           }];
 
           const newValidationResults = { ...prev.validationResults };
@@ -220,6 +223,7 @@ export default function usePipelineStream() {
             validationResults: newValidationResults,
             currentAgent: null,
             currentStep: null,
+            currentAttempt: 1,
           };
         });
         break;

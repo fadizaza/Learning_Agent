@@ -193,6 +193,9 @@ function StreamBasedLoading({ pipelineState, t }) {
                     {step.result === 'success' || step.result === 'approved' ? '✓' : '✗'}
                   </span>
                    <span className="completed-step-agent">{agentMap[step.agent] || step.agent}</span>
+                   {step.attempt > 1 && (
+                     <span className="completed-step-attempt">#{step.attempt}</span>
+                   )}
                   {step.score !== undefined && (
                     <span className="completed-step-score">{step.score}/100</span>
                   )}
