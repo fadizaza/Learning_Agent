@@ -535,17 +535,26 @@ async def stream_lesson(req: LessonRequest):
 
         lesson = best_lesson
 
-        t_start = time.time()
-        lesson = await resolve_images(lesson)
-        t_images = int((time.time() - t_start) * 1000)
+        try:
+            t_start = time.time()
+            lesson = await resolve_images(lesson)
+            t_images = int((time.time() - t_start) * 1000)
+        except Exception:
+            pass
 
-        lesson_json = json.dumps(lesson)
-        save_lesson_to_cache(content_hash, req.module_index, lesson_json)
-        save_lesson(req.session_id, req.module_index, lesson_json)
+        try:
+            lesson_json = json.dumps(lesson)
+            save_lesson_to_cache(content_hash, req.module_index, lesson_json)
+            save_lesson(req.session_id, req.module_index, lesson_json)
+        except Exception:
+            pass
 
-        stats = extract_lesson_stats(lesson)
-        log.set_final_result(status="success", **stats)
-        log.save()
+        try:
+            stats = extract_lesson_stats(lesson)
+            log.set_final_result(status="success", **stats)
+            log.save()
+        except Exception:
+            pass
 
         yield _sse_event("lesson_ready", {"lesson": lesson, "learning_outcomes": learning_outcomes})
 
@@ -660,9 +669,12 @@ async def stream_quiz(req: QuizRequest):
 
         quiz = best_quiz
 
-        stats = extract_quiz_stats(quiz)
-        log.set_final_result(status="success", **stats)
-        log.save()
+        try:
+            stats = extract_quiz_stats(quiz)
+            log.set_final_result(status="success", **stats)
+            log.save()
+        except Exception:
+            pass
 
         yield _sse_event("quiz_ready", {"quiz": quiz})
 
