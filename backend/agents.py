@@ -20,6 +20,7 @@ from google.genai import types
 
 
 def _repair_json(text: str) -> str:
+    text = _normalize_arabic_json(text)
     result = []
     in_string = False
     escape_next = False
@@ -86,8 +87,8 @@ config_planner = types.GenerateContentConfig(temperature=0.4, max_output_tokens=
 config_content = types.GenerateContentConfig(temperature=0.7, max_output_tokens=8192)
 config_quiz = types.GenerateContentConfig(temperature=0.3, max_output_tokens=8192)
 config_eval = types.GenerateContentConfig(temperature=0.2, max_output_tokens=2048)
-config_validator = types.GenerateContentConfig(temperature=0.3, max_output_tokens=2048)
-config_quality = types.GenerateContentConfig(temperature=0.3, max_output_tokens=2048)
+config_validator = types.GenerateContentConfig(temperature=0.3, max_output_tokens=4096)
+config_quality = types.GenerateContentConfig(temperature=0.3, max_output_tokens=4096)
 
 PLANNER_INSTRUCTION_AR = (
     "أنت خبير في تصميم الدروس التعليمية. بناءً على الصف والمادة والموضوع ومستوى المتعلم "
@@ -327,97 +328,134 @@ EVAL_INSTRUCTION_EN = (
     "All content must be in English."
 )
 
-VALIDATOR_INSTRUCTION_AR = (
-    "أنت محقق تعليمي. مهمتك التحقق مما إذا كان المحتوى المُنشأ متوافقًا مع المنهج التعليمي المحدد "
-    "والصف والمادة والموضوع.\n\n"
-    "ستتلقى المحتوى المُنشأ وبيانات المنهج. قيم التوافق وارجع JSON صالحًا فقط:\n"
+SYLLABUS_VALIDATOR_INSTRUCTION_AR = (
+    "أنت محقق توافق المنهج التعليمي. مهمتك التحقق مما إذا كان المنهج (قائمة الوحدات والنتائج التعليمية) "
+    "متوافقًا مع المنهاج المحدد.\n\n"
+    "ستتلقى المنهج المُنشأ وبيانات المنهاج. قيم التوافق وارجع JSON صالحًا فقط:\n"
     "{\n"
     '  "is_aligned": true أو false,\n'
-    '  "score": <رقم من 0 إلى 100 يمثل درجة التوافق>,\n'
+    '  "score": <رقم من 0 إلى 100 يمثل درجة التوافق مع المنهاج>,\n'
     '  "issues": ["<مشكلة 1>", "<مشكلة 2>"],\n'
     '  "suggestions": ["<اقتراح 1>", "<اقتراح 2>"]\n'
     "}\n\n"
-    "معايير التحقق:\n"
-    "1. هل الموضوع مناسب للصف المحدد؟\n"
-    "2. هل المستوى (مبتدئ/متوسط/متقدم) مناسب لمحتوى الوحدات؟\n"
+    "معايير التحقق للمنهج:\n"
+    "1. هل مواضيع الوحدات مدرجة في المنهاج المحدد لهذا الصف والمادة؟\n"
+    "2. هل نتائج التعلم (learning_outcomes) متوافقة مع معايير المنهاج؟\n"
     "3. هل الترتيب منطقي من الأساسيات إلى المتقدم؟\n"
-    "4. هل الوحدات تغطي الموضوع بشكل شامل؟\n"
-    "5. هل المحتوى متوافق مع أسلوب المنهاج المحدد؟\n"
-    "6. هل المحتوى يحتوي على الأقسام الإلزامية (تعريف، شرح، تطبيقات، أخطاء شائعة، ملخص)؟\n"
-    "7. هل عدد الكلمات مناسب للمستوى (مبتدئ 800-1200، متوسط 1200-1800، متقدم 1800-2500)؟\n"
-    "8. هل key_points تحتوي على 5 نقاط على الأقل؟\n"
-    "9. هل examples تحتوي على 3 أمثلة على الأقل؟\n\n"
+    "4. هل المنهج يغطي الموضوعات والمفاهيم الأساسية المطلوبة في المنهاج؟\n"
+    "5. هل عدد الوحدات مناسب لنطاق الموضوع في المنهاج؟\n\n"
     "إذا كان التوافق ≥ 70، ضع is_aligned = true. وإلا ضعه = false.\n"
     "يجب أن يكون كل المحتوى باللغة العربية."
 )
 
-VALIDATOR_INSTRUCTION_EN = (
-    "You are an educational validator. Your task is to verify whether the generated content aligns with "
-    "the specified curriculum, grade, subject, and topic.\n\n"
-    "You will receive the generated content and curriculum data. Evaluate alignment and return only valid JSON:\n"
+SYLLABUS_VALIDATOR_INSTRUCTION_EN = (
+    "You are a curriculum syllabus validator. Your task is to verify whether the generated syllabus "
+    "(list of modules and learning outcomes) aligns with the specified curriculum.\n\n"
+    "You will receive the generated syllabus and curriculum data. Evaluate alignment and return only valid JSON:\n"
     "{\n"
     '  "is_aligned": true or false,\n'
-    '  "score": <number from 0 to 100 representing alignment score>,\n'
+    '  "score": <number from 0 to 100 representing alignment score with the curriculum>,\n'
     '  "issues": ["<issue 1>", "<issue 2>"],\n'
     '  "suggestions": ["<suggestion 1>", "<suggestion 2>"]\n'
     "}\n\n"
-    "Validation criteria:\n"
-    "1. Is the topic appropriate for the specified grade?\n"
-    "2. Is the level (beginner/intermediate/advanced) appropriate for the module content?\n"
+    "Validation criteria for syllabus:\n"
+    "1. Are the module topics included in the specified curriculum for this grade and subject?\n"
+    "2. Do the learning outcomes align with the curriculum standards?\n"
     "3. Is the progression logical from basics to advanced?\n"
-    "4. Do the modules cover the topic comprehensively?\n"
-    "5. Is the content style compatible with the specified curriculum?\n"
-    "6. Does the content contain all mandatory sections (definition, explanation, applications, common mistakes, summary)?\n"
-    "7. Is the word count appropriate for the level (beginner 800-1200, intermediate 1200-1800, advanced 1800-2500)?\n"
-    "8. Does key_points contain at least 5 items?\n"
-    "9. Does examples contain at least 3 items?\n\n"
+    "4. Does the syllabus cover the essential topics and concepts required by the curriculum?\n"
+    "5. Is the number of modules appropriate for the scope of the topic in the curriculum?\n\n"
+    "If alignment score ≥ 70, set is_aligned = true. Otherwise set it to false.\n"
+    "All content must be in English."
+)
+
+CONTENT_VALIDATOR_INSTRUCTION_AR = (
+    "أنت محقق توافق المحتوى التعليمي. مهمتك التحقق مما إذا كان محتوى الدرس المُنشأ متوافقًا مع "
+    "المنهاج المحدد.\n\n"
+    "ستتلقى محتوى الدرس وبيانات المنهاج. قيم التوافق وارجع JSON صالحًا فقط:\n"
+    "{\n"
+    '  "is_aligned": true أو false,\n'
+    '  "score": <رقم من 0 إلى 100 يمثل درجة التوافق مع المنهاج>,\n'
+    '  "issues": ["<مشكلة 1>", "<مشكلة 2>"],\n'
+    '  "suggestions": ["<اقتراح 1>", "<اقتراح 2>"]\n'
+    "}\n\n"
+    "معايير التحقق لمحتوى الدرس:\n"
+    "1. هل المحتوى يتضمن الموضوعات والمفاهيم المطلوبة في المنهاج؟\n"
+    "2. هل أسلوب العرض والشرح يطابق أسلوب المنهاج (مثل: أكاديمي، تطبيقي، نقدي)؟\n"
+    "3. هل مستوى التعقيد والعمق مناسب لمرحلة الطلاب في هذا المنهاج؟\n"
+    "4. هل المحتوى يراعي الفروق العمرية والognitive للطلاب في هذا المستوى؟\n"
+    "5. هل المعلومات المقدمة متوافقة مع ما يتوقعه المنهاج من الطلاب؟\n\n"
+    "إذا كان التوافق ≥ 70، ضع is_aligned = true. وإلا ضعه = false.\n"
+    "يجب أن يكون كل المحتوى باللغة العربية."
+)
+
+CONTENT_VALIDATOR_INSTRUCTION_EN = (
+    "You are a curriculum content validator. Your task is to verify whether the generated lesson content "
+    "aligns with the specified curriculum.\n\n"
+    "You will receive the lesson content and curriculum data. Evaluate alignment and return only valid JSON:\n"
+    "{\n"
+    '  "is_aligned": true or false,\n'
+    '  "score": <number from 0 to 100 representing alignment score with the curriculum>,\n'
+    '  "issues": ["<issue 1>", "<issue 2>"],\n'
+    '  "suggestions": ["<suggestion 1>", "<suggestion 2>"]\n'
+    "}\n\n"
+    "Validation criteria for lesson content:\n"
+    "1. Does the content include the topics and concepts required by the curriculum?\n"
+    "2. Does the presentation style match the curriculum's approach (e.g., academic, practical, critical)?\n"
+    "3. Is the complexity and depth appropriate for students at this curriculum level?\n"
+    "4. Does the content consider the cognitive development of students in this grade level?\n"
+    "5. Does the information presented match what the curriculum expects students to learn?\n\n"
     "If alignment score ≥ 70, set is_aligned = true. Otherwise set it to false.\n"
     "All content must be in English."
 )
 
 QUALITY_INSTRUCTION_AR = (
-    "أنت مراجع جودة محتوى تعليمي. مهمتك تقييم جودة المحتوى المُنشأ من حيث العمق والوضوح والفاعلية.\n\n"
-    "ستتلقى المحتوى المُنشأ وبيانات الدرس. قيم الجودة وارجع JSON صالحًا فقط:\n"
+    "أنت مراجع جودة المحتوى التعليمي. مهمتك تقييم جودة المحتوى المُنشأ من حيث العمق والوضوح "
+    "والفاعلية والدقة.\n\n"
+    "ستتلقى المحتوى المُنشأ. قيم الجودة وارجع JSON صالحًا فقط:\n"
     "{\n"
     '  "overall_score": <رقم من 0 إلى 100>,\n'
     '  "depth_score": <رقم من 0 إلى 100 - عمق المحتوى>,\n'
     '  "clarity_score": <رقم من 0 إلى 100 - ووضوح الشرح>,\n'
     '  "engagement_score": <رقم من 0 إلى 100 - مدى الجاذبية>,\n'
-    '  "completeness_score": <رقم من 0 إلى 100 - اكتمال الأقسام>,\n'
+    '  "accuracy_score": <رقم من 0 إلى 100 - دقة المعلومات>,\n'
     '  "issues": ["<مشكلة 1>", "<مشكلة 2>"],\n'
     '  "suggestions": ["<اقتراح 1>", "<اقتراح 2>"],\n'
     '  "is_approved": true أو false\n'
     "}\n\n"
-    "معايير التقييم:\n"
-    "1. العمق: هل المحتوى يشرح المفاهيم بتفصيل كافٍ؟ هل هناك أمثلة متنوعة؟\n"
-    "2. الوضوح: هل اللغة واضحة ومفهومة للطلاب؟\n"
-    "3. الجاذبية: هل المحتوى يجذب القارئ؟ هل يستخدم تشبيهات وأمثلة عملية؟\n"
-    "4. الاكتمال: هل جميع الأقسام موجودة (تعريف، شرح، تطبيقات، أخطاء شائعة، ملخص)؟\n"
-    "5. عدد الكلمات مناسب للمستوى؟\n\n"
+    "معايير التقييم (聚焦 على جودة المحتوى فقط):\n"
+    "1. العمق: هل المحتوى يشرح المفاهيم بتفصيل كافٍ؟ هل هناك أمثلة متنوعة وتفسيرات واضحة؟\n"
+    "2. الوضوح: هل اللغة واضحة ومفهومة للطلاب؟ هل الجمل مكتملة ومنطقية؟\n"
+    "3. الفاعلية: هل المحتوى يجذب القارئ؟ هل يستخدم تشبيهات وأمثلة عملية من الحياة اليومية؟\n"
+    "4. الدقة: هل المعلومات صحيحة ومحدثة؟ هل هناك أخطاء معلوماتية؟\n"
+    "5. التنظيم: هل المحتوى منطقي ومترابط؟ هل الأفكار متسقة؟\n\n"
+    "مهم: لا تتحقق من هيكل المحتوى (الأقسام، عدد الكلمات، key_points، examples). "
+    "ركز فقط على جودة المحتوى التعليمي.\n\n"
     "إذا كان overall_score ≥ 70، ضع is_approved = true. وإلا ضعه = false.\n"
     "يجب أن يكون كل المحتوى باللغة العربية."
 )
 
 QUALITY_INSTRUCTION_EN = (
     "You are a content quality reviewer for educational material. Your task is to evaluate the quality "
-    "of generated content in terms of depth, clarity, and effectiveness.\n\n"
-    "You will receive the generated content and lesson data. Evaluate quality and return only valid JSON:\n"
+    "of generated content in terms of depth, clarity, engagement, and accuracy.\n\n"
+    "You will receive the generated content. Evaluate quality and return only valid JSON:\n"
     "{\n"
     '  "overall_score": <number from 0 to 100>,\n'
     '  "depth_score": <number from 0 to 100 - content depth>,\n'
     '  "clarity_score": <number from 0 to 100 - explanation clarity>,\n'
     '  "engagement_score": <number from 0 to 100 - how engaging it is>,\n'
-    '  "completeness_score": <number from 0 to 100 - section completeness>,\n'
+    '  "accuracy_score": <number from 0 to 100 - information accuracy>,\n'
     '  "issues": ["<issue 1>", "<issue 2>"],\n'
     '  "suggestions": ["<suggestion 1>", "<suggestion 2>"],\n'
     '  "is_approved": true or false\n'
     "}\n\n"
-    "Evaluation criteria:\n"
-    "1. Depth: Does the content explain concepts in sufficient detail? Are there diverse examples?\n"
-    "2. Clarity: Is the language clear and understandable for students?\n"
-    "3. Engagement: Does the content engage the reader? Does it use analogies and practical examples?\n"
-    "4. Completeness: Are all sections present (definition, explanation, applications, common mistakes, summary)?\n"
-    "5. Is the word count appropriate for the level?\n\n"
+    "Evaluation criteria (focus ONLY on content quality):\n"
+    "1. Depth: Does the content explain concepts in sufficient detail? Are there diverse examples and clear explanations?\n"
+    "2. Clarity: Is the language clear and understandable for students? Are sentences complete and logical?\n"
+    "3. Engagement: Does the content engage the reader? Does it use analogies and practical examples from daily life?\n"
+    "4. Accuracy: Is the information correct and up-to-date? Are there any factual errors?\n"
+    "5. Organization: Is the content logical and coherent? Are ideas consistent?\n\n"
+    "IMPORTANT: Do NOT check content structure (sections, word count, key_points, examples). "
+    "Focus ONLY on educational content quality.\n\n"
     "If overall_score ≥ 70, set is_approved = true. Otherwise set it to false.\n"
     "All content must be in English."
 )
@@ -486,18 +524,34 @@ evaluator_en = LlmAgent(
     generate_content_config=config_eval,
 )
 
-validator_ar = LlmAgent(
-    name="ValidatorAgent_AR",
+syllabus_validator_ar = LlmAgent(
+    name="SyllabusValidator_AR",
     model=MODEL,
-    instruction=VALIDATOR_INSTRUCTION_AR,
+    instruction=SYLLABUS_VALIDATOR_INSTRUCTION_AR,
     output_key="validation_json",
     generate_content_config=config_validator,
 )
 
-validator_en = LlmAgent(
-    name="ValidatorAgent_EN",
+syllabus_validator_en = LlmAgent(
+    name="SyllabusValidator_EN",
     model=MODEL,
-    instruction=VALIDATOR_INSTRUCTION_EN,
+    instruction=SYLLABUS_VALIDATOR_INSTRUCTION_EN,
+    output_key="validation_json",
+    generate_content_config=config_validator,
+)
+
+content_validator_ar = LlmAgent(
+    name="ContentValidator_AR",
+    model=MODEL,
+    instruction=CONTENT_VALIDATOR_INSTRUCTION_AR,
+    output_key="validation_json",
+    generate_content_config=config_validator,
+)
+
+content_validator_en = LlmAgent(
+    name="ContentValidator_EN",
+    model=MODEL,
+    instruction=CONTENT_VALIDATOR_INSTRUCTION_EN,
     output_key="validation_json",
     generate_content_config=config_validator,
 )
@@ -536,8 +590,10 @@ QUIZ_RUNNER_AR = InMemoryRunner(agent=quiz_generator_ar, app_name="learning_app"
 QUIZ_RUNNER_EN = InMemoryRunner(agent=quiz_generator_en, app_name="learning_app")
 EVAL_RUNNER_AR = InMemoryRunner(agent=evaluator_ar, app_name="learning_app")
 EVAL_RUNNER_EN = InMemoryRunner(agent=evaluator_en, app_name="learning_app")
-VALIDATOR_RUNNER_AR = InMemoryRunner(agent=validator_ar, app_name="learning_app")
-VALIDATOR_RUNNER_EN = InMemoryRunner(agent=validator_en, app_name="learning_app")
+SYLLABUS_VALIDATOR_RUNNER_AR = InMemoryRunner(agent=syllabus_validator_ar, app_name="learning_app")
+SYLLABUS_VALIDATOR_RUNNER_EN = InMemoryRunner(agent=syllabus_validator_en, app_name="learning_app")
+CONTENT_VALIDATOR_RUNNER_AR = InMemoryRunner(agent=content_validator_ar, app_name="learning_app")
+CONTENT_VALIDATOR_RUNNER_EN = InMemoryRunner(agent=content_validator_en, app_name="learning_app")
 QUALITY_RUNNER_AR = InMemoryRunner(agent=quality_ar, app_name="learning_app")
 QUALITY_RUNNER_EN = InMemoryRunner(agent=quality_en, app_name="learning_app")
 PIPELINE_RUNNER_AR = InMemoryRunner(agent=learning_pipeline_ar, app_name="learning_pipeline")
@@ -558,7 +614,31 @@ async def _run_agent(runner: InMemoryRunner, prompt: str) -> str | None:
     return None
 
 
+def _normalize_arabic_json(text: str) -> str:
+    ARABIC_INDIC_DIGITS = str.maketrans('٠١٢٣٤٥٦٧٨٩', '0123456789')
+    text = text.translate(ARABIC_INDIC_DIGITS)
+    text = text.replace('،', ',').replace('؛', ';').replace('؟', '?').replace('！', '!')
+    text = text.replace('\u200b', '').replace('\u200c', '').replace('\u200d', '').replace('\ufeff', '')
+    text = text.replace('«', '"').replace('»', '"').replace('\u201c', '"').replace('\u201d', '"')
+    text = text.replace('\u2018', "'").replace('\u2019', "'")
+    return text
+
+
+LEVEL_MAP_AR = {
+    "Beginner": "مبتدئ",
+    "Intermediate": "متوسط",
+    "Advanced": "متقدم",
+}
+
+
+def _get_level(level: str, language: str) -> str:
+    if language == "ar":
+        return LEVEL_MAP_AR.get(level, level)
+    return level
+
+
 def _clean_json(text: str) -> str:
+    text = _normalize_arabic_json(text)
     text = text.strip()
     if text.startswith("```"):
         lines = text.splitlines()
@@ -679,7 +759,7 @@ async def generate_syllabus(grade: str, subject: str, topic: str, level: str, go
             prompt += f"Learner goals: {goals}\n"
         prompt += "\nCreate an educational syllabus."
     else:
-        prompt = f"الصف: {grade}\nالمادة: {subject}\nالموضوع: {topic}\nمستوى المتعلم: {level}\n"
+        prompt = f"الصف: {grade}\nالمادة: {subject}\nالموضوع: {topic}\nمستوى المتعلم: {_get_level(level, language)}\n"
         if curriculum:
             prompt += f"المنهاج التعليمي: {curriculum}\n"
         if goals:
@@ -688,7 +768,7 @@ async def generate_syllabus(grade: str, subject: str, topic: str, level: str, go
     syllabus = await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="generate_syllabus")
 
     if curriculum:
-        validation = await validate_content(syllabus, grade, subject, topic, level, curriculum, language)
+        validation = await validate_syllabus(syllabus, grade, subject, topic, level, curriculum, language)
         if not validation.get("is_aligned", True):
             issues = validation.get("issues", [])
             suggestions = validation.get("suggestions", [])
@@ -738,7 +818,7 @@ async def generate_lesson(grade: str, subject: str, topic: str, level: str, modu
         hint = "Make sure the JSON is valid. Use \\\" inside strings when needed. Do not leave unescaped quotes in the content."
     else:
         prompt = (
-            f"الصف: {grade}\nالمادة: {subject}\nالموضوع: {topic}\nمستوى المتعلم: {level}\n"
+            f"الصف: {grade}\nالمادة: {subject}\nالموضوع: {topic}\nمستوى المتعلم: {_get_level(level, language)}\n"
             f"عنوان الوحدة: {module_title}\n"
         )
         if module_description:
@@ -759,7 +839,7 @@ async def generate_lesson(grade: str, subject: str, topic: str, level: str, modu
     lesson = await _generate_json(runner, prompt, hint, logger=logger, agent_name=agent_name, step="generate_lesson")
 
     if curriculum:
-        validation = await validate_content(lesson, grade, subject, topic, level, curriculum, language, logger=logger)
+        validation = await validate_lesson_content(lesson, grade, subject, topic, level, curriculum, language, logger=logger)
         if not validation.get("is_aligned", True):
             issues = validation.get("issues", [])
             suggestions = validation.get("suggestions", [])
@@ -801,7 +881,7 @@ async def generate_quiz(topic: str, level: str, lesson_content: str, language: s
         hint = "Make sure the JSON is valid with no errors."
     else:
         prompt = (
-            f"الموضوع: {topic}\nمستوى المتعلم: {level}\n"
+            f"الموضوع: {topic}\nمستوى المتعلم: {_get_level(level, language)}\n"
         )
         if curriculum:
             prompt += f"المنهاج التعليمي: {curriculum}\n"
@@ -833,26 +913,59 @@ async def evaluate_answers(questions: list, user_answers: list, correct_answers:
     return await _generate_json(runner, prompt, hint)
 
 
-async def validate_content(content: dict, grade: str, subject: str, topic: str, level: str, curriculum: str, language: str = "ar", logger=None) -> dict:
-    runner = _get_runner(language, VALIDATOR_RUNNER_AR, VALIDATOR_RUNNER_EN)
-    agent_name = "ValidatorAgent_AR" if language == "ar" else "ValidatorAgent_EN"
+async def validate_syllabus(content: dict, grade: str, subject: str, topic: str, level: str, curriculum: str, language: str = "ar", logger=None) -> dict:
+    runner = _get_runner(language, SYLLABUS_VALIDATOR_RUNNER_AR, SYLLABUS_VALIDATOR_RUNNER_EN)
+    agent_name = "SyllabusValidator_AR" if language == "ar" else "SyllabusValidator_EN"
     content_str = json.dumps(content, ensure_ascii=False)
     if language == "en":
         prompt = (
             f"Grade: {grade}\nSubject: {subject}\nTopic: {topic}\nLevel: {level}\n"
             f"Curriculum: {curriculum}\n\n"
-            f"Generated content:\n{content_str}\n\n"
-            f"Validate alignment with the curriculum."
+            f"Generated syllabus:\n{content_str}\n\n"
+            f"Check if this syllabus aligns with the {curriculum} curriculum standards. "
+            f"Are the module topics and learning outcomes appropriate for this curriculum?"
         )
     else:
         prompt = (
-            f"الصف: {grade}\nالمادة: {subject}\nالموضوع: {topic}\nالمستوى: {level}\n"
+            f"الصف: {grade}\nالمادة: {subject}\nالموضوع: {topic}\nالمستوى: {_get_level(level, language)}\n"
             f"المنهاج التعليمي: {curriculum}\n\n"
-            f"المحتوى المُنشأ:\n{content_str}\n\n"
-            f"تحقق من التوافق مع المنهج."
+            f"المنهج المُنشأ:\n{content_str}\n\n"
+            f"تحقق مما إذا كان هذا المنهج يتوافق مع معايير منهج {curriculum}. "
+            f"هل مواضيع الوحدات ونتائج التعلم مناسبة لهذا المنهاج؟"
         )
     try:
-        result = await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="validate_content")
+        result = await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="validate_syllabus")
+        if "criteria" not in result:
+            result["criteria"] = {}
+        if "is_aligned" not in result:
+            result["is_aligned"] = result.get("score", 100) >= 70
+        return result
+    except Exception:
+        return {"is_aligned": True, "score": 100, "criteria": {}, "issues": [], "suggestions": []}
+
+
+async def validate_lesson_content(content: dict, grade: str, subject: str, topic: str, level: str, curriculum: str, language: str = "ar", logger=None) -> dict:
+    runner = _get_runner(language, CONTENT_VALIDATOR_RUNNER_AR, CONTENT_VALIDATOR_RUNNER_EN)
+    agent_name = "ContentValidator_AR" if language == "ar" else "ContentValidator_EN"
+    content_str = json.dumps(content, ensure_ascii=False)
+    if language == "en":
+        prompt = (
+            f"Grade: {grade}\nSubject: {subject}\nTopic: {topic}\nLevel: {level}\n"
+            f"Curriculum: {curriculum}\n\n"
+            f"Generated lesson content:\n{content_str}\n\n"
+            f"Check if this lesson content aligns with the {curriculum} curriculum standards. "
+            f"Does it cover the required topics? Does it match the curriculum's style and complexity level?"
+        )
+    else:
+        prompt = (
+            f"الصف: {grade}\nالمادة: {subject}\nالموضوع: {topic}\nالمستوى: {_get_level(level, language)}\n"
+            f"المنهاج التعليمي: {curriculum}\n\n"
+            f"محتوى الدرس المُنشأ:\n{content_str}\n\n"
+            f"تحقق مما إذا كان محتوى الدرس هذا يتوافق مع معايير منهج {curriculum}. "
+            f"هل يغطي الموضوعات المطلوبة؟ هل يطابق أسلوب المنهاج ومستوى التعقيد؟"
+        )
+    try:
+        result = await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="validate_lesson_content")
         if "criteria" not in result:
             result["criteria"] = {}
         if "is_aligned" not in result:
@@ -870,13 +983,17 @@ async def check_content_quality(content: dict, content_type: str, language: str 
         prompt = (
             f"Content type: {content_type}\n\n"
             f"Generated content:\n{content_str}\n\n"
-            f"Evaluate the quality of this educational content."
+            f"Evaluate the educational quality of this content. "
+            f"Focus on: depth of explanation, clarity of language, engagement level, and accuracy of information. "
+            f"Do NOT check if sections exist or word count — just evaluate quality."
         )
     else:
         prompt = (
             f"نوع المحتوى: {content_type}\n\n"
             f"المحتوى المُنشأ:\n{content_str}\n\n"
-            f"قم بتقييم جودة هذا المحتوى التعليمي."
+            f"قم بتقييم الجودة التعليمية لهذا المحتوى. "
+            f"ركز على: عمق الشرح، وضوح اللغة، مستوى التفاعل، ودقة المعلومات. "
+            f"لا تتحقق من وجود الأقسام أو عدد الكلمات — قم فقط بتقييم الجودة."
         )
     try:
         result = await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="check_quality")

@@ -86,7 +86,8 @@ function getStepIcon(step) {
   switch (step) {
     case 'content': return '📝';
     case 'content_retry': return '🔄';
-    case 'validator': return '🔍';
+    case 'syllabus_validator': return '🔍';
+    case 'content_validator': return '🔍';
     case 'quality': return '✅';
     case 'quiz': return '🧪';
     case 'quiz_retry': return '🔄';
@@ -99,7 +100,8 @@ function getStepLabel(step, t) {
   switch (step) {
     case 'content': return p.lesson1?.short || 'Content';
     case 'content_retry': return p.lesson1?.short || 'Content';
-    case 'validator': return p.lesson2?.short || 'Validator';
+    case 'syllabus_validator': return p.syllabus2?.short || 'SyllabusValidator';
+    case 'content_validator': return p.lesson2?.short || 'ContentValidator';
     case 'quality': return p.lesson3?.short || 'Quality';
     case 'quiz': return p.quiz1?.short || 'Quiz';
     case 'quiz_retry': return p.quiz1?.short || 'Quiz';
@@ -112,7 +114,8 @@ function getAgentMessage(step, t) {
   switch (step) {
     case 'content': return p.lesson1?.message || 'Generating content...';
     case 'content_retry': return 'Regenerating content...';
-    case 'validator': return p.lesson2?.message || 'Validating...';
+    case 'syllabus_validator': return p.syllabus2?.message || 'Validating syllabus...';
+    case 'content_validator': return p.lesson2?.message || 'Validating content...';
     case 'quality': return p.lesson3?.message || 'Checking quality...';
     case 'quiz': return p.quiz1?.message || 'Creating quiz...';
     case 'quiz_retry': return 'Regenerating quiz...';
@@ -126,7 +129,7 @@ function StreamBasedLoading({ pipelineState, t }) {
   const criteriaMap = t.loading.criteriaMap || {};
 
   const completedStepsList = completedSteps.map(s => s.step);
-  const allSteps = steps.length > 0 ? steps : ['content', 'validator', 'quality'];
+  const allSteps = steps.length > 0 ? steps : ['content', 'quality'];
 
   const completedScore = completedSteps.reduce((sum, s) => {
     if (s.score) return sum + s.score;

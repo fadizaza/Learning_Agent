@@ -975,7 +975,7 @@ body {
 }
 
 /* RTL overrides for loading */
-[dir="rtl"] .loading-text { text-align: left; }
+[dir="rtl"] .loading-text { text-align: right; }
 
 /* ---- Pipeline Steps Track ---- */
 .loading-steps-track {
@@ -1267,7 +1267,7 @@ body {
 
 /* RTL overrides for learning outcomes */
 [dir="rtl"] .loading-learning-outcomes { text-align: right; }
-[dir="rtl"] .loading-completed-step { border-left: none; border-right: 4px solid #ccc; }
+[dir="rtl"] .loading-completed-step { border-left: none; border-right: 4px solid #ccc; text-align: right; }
 [dir="rtl"] .loading-completed-step.success { border-right-color: #2ecc71; }
 [dir="rtl"] .loading-completed-step.rejected { border-right-color: #e74c3c; }
 [dir="rtl"] .completed-step-score { margin-left: 0; margin-right: auto; }

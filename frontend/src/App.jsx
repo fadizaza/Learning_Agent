@@ -53,6 +53,12 @@ export default function App() {
     setStep(STEPS.RESULTS);
   };
 
+  const handleBackToLesson = () => {
+    setQuiz(null);
+    setResults(null);
+    setStep(STEPS.LESSON);
+  };
+
   const handleBackToSyllabus = () => {
     setActiveModule(null);
     setLesson(null);
@@ -117,7 +123,7 @@ export default function App() {
             quiz={quiz}
             lesson={lesson}
             onSubmit={handleQuizSubmit}
-            onBack={handleBackToSyllabus}
+            onBack={handleBackToLesson}
             language={language}
             t={t}
           />

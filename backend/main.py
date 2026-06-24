@@ -441,7 +441,7 @@ async def stream_lesson(req: LessonRequest):
             "learning_outcomes": learning_outcomes,
             "module_description": module_description,
             "module_title": req.module_title,
-            "steps": ["content", "validator", "quality"],
+            "steps": ["content", "quality"],
         })
 
         yield _sse_event("agent_started", {
