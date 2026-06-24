@@ -53,6 +53,8 @@ export default function usePipelineStream() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let eventType = '';
+      let eventData = '';
 
       const processChunk = ({ done, value }) => {
         if (done) return;
@@ -60,9 +62,6 @@ export default function usePipelineStream() {
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
-
-        let eventType = '';
-        let eventData = '';
 
         for (const line of lines) {
           if (line.startsWith('event: ')) {
@@ -129,6 +128,8 @@ export default function usePipelineStream() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let eventType = '';
+      let eventData = '';
 
       const processChunk = ({ done, value }) => {
         if (done) return;
@@ -136,9 +137,6 @@ export default function usePipelineStream() {
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
-
-        let eventType = '';
-        let eventData = '';
 
         for (const line of lines) {
           if (line.startsWith('event: ')) {
