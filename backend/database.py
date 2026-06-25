@@ -94,6 +94,8 @@ def init_db():
         cursor.execute("ALTER TABLE sessions ADD COLUMN curriculum TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass
+    # Clear old cached lessons so new fields (hook, interactive_checkpoints, etc.) are regenerated
+    cursor.execute("DELETE FROM lesson_cache")
     conn.commit()
     conn.close()
 
@@ -195,7 +197,12 @@ def get_cached_lesson(session_id: str, module_index: int):
         (session_id, module_index),
     ).fetchone()
     conn.close()
-    return json.loads(row["content"]) if row else None
+    if row:
+        data = json.loads(row["content"])
+        # Ignore old cached lessons missing new fields (hook, etc.)
+        if "hook" in data:
+            return data
+    return None
 
 
 def save_lesson_to_cache(lesson_cache_key: str, module_index: int, content: str):
@@ -219,7 +226,11 @@ def find_cached_lesson_by_params(grade, subject, topic, level, goals, module_ind
         (grade, subject, topic, level, goals, language, curriculum, module_index),
     ).fetchone()
     conn.close()
-    return json.loads(row["content"]) if row else None
+    if row:
+        data = json.loads(row["content"])
+        if "hook" in data:
+            return data
+    return None
 
 
 def get_cached_lesson_by_content(lesson_cache_key: str, module_index: int):
@@ -229,7 +240,11 @@ def get_cached_lesson_by_content(lesson_cache_key: str, module_index: int):
         (lesson_cache_key, module_index),
     ).fetchone()
     conn.close()
-    return json.loads(row["content"]) if row else None
+    if row:
+        data = json.loads(row["content"])
+        if "hook" in data:
+            return data
+    return None
 
 
 def save_quiz_attempt(session_id: str, module_index: int, questions: str, answers: str, score: float, feedback: str, retry_count: int = 0):

@@ -264,11 +264,15 @@ async def get_lesson(req: LessonRequest):
         return cached
 
     try:
-        lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang, curriculum, logger=log, module_description=module_description, learning_outcomes=learning_outcomes)
+        grade_number = _extract_grade_number(session["grade"])
+        lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang, curriculum, logger=log, module_description=module_description, learning_outcomes=learning_outcomes, grade_number=grade_number)
     except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"ERROR in generate_lesson: {e}\n{tb}")
         log.set_final_result(status="error", word_count=0)
         log.save()
-        raise HTTPException(status_code=500, detail=f"{msgs['lesson_failed']}: {e}")
+        raise HTTPException(status_code=500, detail=f"{msgs['lesson_failed']}: {e}\n{tb}")
 
     best_lesson = lesson
     best_score = 0
@@ -300,7 +304,7 @@ async def get_lesson(req: LessonRequest):
                     session["grade"], session["subject"], session["topic"], session["level"],
                     req.module_title, session.get("goals", ""), lang, curriculum, logger=log,
                     quality_feedback=all_feedback, module_description=module_description,
-                    learning_outcomes=learning_outcomes
+                    learning_outcomes=learning_outcomes, grade_number=grade_number
                 )
             except Exception:
                 break
@@ -385,6 +389,22 @@ def _sse_event(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+GRADE_NUMBERS = {
+    "الصف الأول": 1, "الصف الثاني": 2, "الصف الثالث": 3,
+    "الصف الرابع": 4, "الصف الخامس": 5, "الصف السادس": 6,
+    "الصف السابع": 7, "الصف الثامن": 8, "الصف التاسع": 9,
+    "الصف العاشر": 10, "الصف الحادي عشر": 11, "الصف الثاني عشر": 12,
+    "Grade 1": 1, "Grade 2": 2, "Grade 3": 3,
+    "Grade 4": 4, "Grade 5": 5, "Grade 6": 6,
+    "Grade 7": 7, "Grade 8": 8, "Grade 9": 9,
+    "Grade 10": 10, "Grade 11": 11, "Grade 12": 12,
+}
+
+
+def _extract_grade_number(grade: str) -> int:
+    return GRADE_NUMBERS.get(grade.strip(), 0)
+
+
 @app.post("/api/lessons/stream")
 async def stream_lesson(req: LessonRequest):
     session = get_session(req.session_id)
@@ -437,6 +457,7 @@ async def stream_lesson(req: LessonRequest):
         return StreamingResponse(cached_response3(), media_type="text/event-stream")
 
     async def generate_stream():
+        grade_number = _extract_grade_number(grade)
         yield _sse_event("pipeline_started", {
             "learning_outcomes": learning_outcomes,
             "module_description": module_description,
@@ -451,11 +472,14 @@ async def stream_lesson(req: LessonRequest):
         })
 
         try:
-            lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang, curriculum, logger=log, module_description=module_description, learning_outcomes=learning_outcomes)
+            lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang, curriculum, logger=log, module_description=module_description, learning_outcomes=learning_outcomes, grade_number=grade_number)
         except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            print(f"ERROR in generate_lesson: {e}\n{tb}")
             log.set_final_result(status="error", word_count=0)
             log.save()
-            yield _sse_event("error", {"message": f"{msgs['lesson_failed']}: {e}"})
+            yield _sse_event("error", {"message": f"{msgs['lesson_failed']}: {e}\n{tb}"})
             return
 
         yield _sse_event("agent_completed", {
@@ -521,7 +545,7 @@ async def stream_lesson(req: LessonRequest):
                         session["grade"], session["subject"], session["topic"], session["level"],
                         req.module_title, session.get("goals", ""), lang, curriculum, logger=log,
                         quality_feedback=all_feedback, module_description=module_description,
-                        learning_outcomes=learning_outcomes
+                        learning_outcomes=learning_outcomes, grade_number=grade_number
                     )
                 except Exception:
                     break

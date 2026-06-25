@@ -122,6 +122,9 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
   const [error, setError] = useState('');
   const [speaking, setSpeaking] = useState(false);
   const [sectionSpeaking, setSectionSpeaking] = useState(null);
+  const [checkpointSelected, setCheckpointSelected] = useState({});
+  const [checkpointSubmitted, setCheckpointSubmitted] = useState({});
+  const [checkpointRevealed, setCheckpointRevealed] = useState({});
   const audioRef = useRef(null);
   const sectionAudioRef = useRef(null);
 
@@ -347,6 +350,13 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
         <h2>📖 {lesson?.title || module.title}</h2>
       </div>
 
+      {lesson?.hook && (
+        <div className="hook-banner">
+          <span className="hook-icon">🚀</span>
+          <p>{lesson.hook}</p>
+        </div>
+      )}
+
       <div key={currentCard} className={`flash-card ${colorClass} card-section`}>
         <button
           className={`tts-btn ${speaking ? 'playing' : ''}`}
@@ -389,6 +399,90 @@ export default function Lesson({ session, module, onLessonReady, onStartQuiz, on
       <div className="card-counter">
         {currentCard + 1} / {sections.length}
       </div>
+
+      {lesson?.interactive_checkpoints && lesson.interactive_checkpoints.length > 0 && (
+        <div className="flash-card card-blue">
+          <h3>🎯 {t.lesson.checkpoints || 'Interactive Checkpoints'}</h3>
+          {lesson.interactive_checkpoints.map((cp, idx) => {
+            const selected = checkpointSelected[idx];
+            const submitted = checkpointSubmitted[idx];
+            const revealed = checkpointRevealed[idx];
+            const isCorrect = submitted && selected === cp.correct_index;
+            const isWrong = submitted && selected !== cp.correct_index;
+            return (
+              <div key={idx} className="checkpoint-item">
+                <p className="checkpoint-question">
+                  {cp.type === 'bonus_challenge' ? '⭐ ' : '🔍 '}
+                  {cp.question}
+                </p>
+                <div className="checkpoint-options">
+                  {cp.options?.map((opt, oi) => (
+                    <button
+                      key={oi}
+                      className={`checkpoint-option ${selected === oi ? 'selected' : ''} ${isCorrect && selected === oi ? 'correct' : ''} ${isWrong && selected === oi ? 'wrong' : ''} ${submitted && oi === cp.correct_index ? 'correct' : ''}`}
+                      onClick={() => !submitted && setCheckpointSelected(prev => ({...prev, [idx]: oi}))}
+                      disabled={submitted}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                {!submitted && selected !== undefined && (
+                  <button
+                    className="btn btn-sm btn-success"
+                    onClick={() => setCheckpointSubmitted(prev => ({...prev, [idx]: true}))}
+                  >
+                    {t.lesson.submit || 'Submit'}
+                  </button>
+                )}
+                {submitted && (
+                  <div className={`checkpoint-feedback ${isCorrect ? 'feedback-success' : 'feedback-failure'}`}>
+                    <p>{isCorrect ? cp.success_message : cp.failure_message}</p>
+                    {isWrong && cp.catch_up_hint && !revealed && (
+                      <button
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => setCheckpointRevealed(prev => ({...prev, [idx]: true}))}
+                      >
+                        {t.lesson.hint || 'Show hint'}
+                      </button>
+                    )}
+                    {isWrong && cp.catch_up_hint && revealed && (
+                      <p className="catch-up-hint">💡 {cp.catch_up_hint}</p>
+                    )}
+                    {isCorrect && cp.level_up_challenge && (
+                      <p className="level-up-challenge">⚡ {cp.level_up_challenge}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {lesson?.adaptive_paths && (lesson.adaptive_paths.catch_up || lesson.adaptive_paths.level_up) && (
+        <div className="adaptive-paths">
+          {lesson.adaptive_paths.catch_up && (
+            <div className="adaptive-card catch-up-card">
+              <h4>🔄 {t.lesson.catchUp || 'Catch-Up Path'}</h4>
+              <p>{lesson.adaptive_paths.catch_up}</p>
+            </div>
+          )}
+          {lesson.adaptive_paths.level_up && (
+            <div className="adaptive-card level-up-card">
+              <h4>⚡ {t.lesson.levelUp || 'Level-Up Challenge'}</h4>
+              <p>{lesson.adaptive_paths.level_up}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {lesson?.gamification_reward && (
+        <div className="reward-banner">
+          <span className="reward-icon">🏆</span>
+          <p>{lesson.gamification_reward}</p>
+        </div>
+      )}
 
       {lesson?.key_points && lesson.key_points.length > 0 && (
         <div className="flash-card card-green">

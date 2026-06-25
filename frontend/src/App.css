@@ -1273,3 +1273,170 @@ body {
 [dir="rtl"] .completed-step-score { margin-left: 0; margin-right: auto; }
 [dir="rtl"] .criteria-name { text-align: right; }
 [dir="rtl"] .criteria-value { text-align: left; }
+
+/* ---- Hook Banner ---- */
+.hook-banner {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  padding: 16px 20px;
+  border-radius: 14px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: fadeInUp 0.5s ease;
+  box-shadow: 0 4px 15px rgba(118, 75, 162, 0.3);
+}
+.hook-icon { font-size: 28px; flex-shrink: 0; }
+.hook-banner p { font-size: 16px; font-weight: 600; margin: 0; line-height: 1.5; }
+[dir="rtl"] .hook-banner { text-align: right; }
+
+/* ---- Interactive Checkpoints ---- */
+.checkpoint-item {
+  background: #f8f5ff;
+  border: 1px solid #e4ddf2;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+  animation: fadeInUp 0.4s ease both;
+}
+.checkpoint-question {
+  font-size: 15px;
+  font-weight: 600;
+  color: #5a2d82;
+  margin-bottom: 12px;
+}
+.checkpoint-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.checkpoint-option {
+  padding: 12px 16px;
+  border: 2px solid #e8e0f0;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  font-family: inherit;
+  text-align: inherit;
+}
+.checkpoint-option:hover:not(:disabled) {
+  border-color: #764ba2;
+  background: #f0ecf8;
+}
+.checkpoint-option.selected {
+  border-color: #667eea;
+  background: #eef2ff;
+}
+.checkpoint-option.correct {
+  border-color: #2ecc71;
+  background: #d4edda;
+}
+.checkpoint-option.wrong {
+  border-color: #ea4335;
+  background: #f8d7da;
+}
+.checkpoint-option:disabled {
+  cursor: default;
+  opacity: 0.8;
+}
+.checkpoint-feedback {
+  padding: 12px 14px;
+  border-radius: 12px;
+  margin-top: 8px;
+  animation: fadeInUp 0.3s ease;
+}
+.checkpoint-feedback.feedback-success {
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  border: 1px solid #2ecc71;
+}
+.checkpoint-feedback.feedback-failure {
+  background: linear-gradient(135deg, #fff3cd, #ffeeba);
+  border: 1px solid #f39c12;
+}
+.checkpoint-feedback p { margin: 0 0 8px 0; font-size: 14px; }
+.catch-up-hint {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #eef2ff;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #5a2d82;
+  animation: fadeInUp 0.3s ease;
+}
+.level-up-challenge {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #f0fff4, #d4edda);
+  border-radius: 10px;
+  font-size: 14px;
+  color: #155724;
+  font-weight: 600;
+  animation: fadeInUp 0.3s ease;
+}
+
+/* ---- Adaptive Paths ---- */
+.adaptive-paths {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.adaptive-card {
+  padding: 16px;
+  border-radius: 14px;
+  animation: fadeInUp 0.5s ease both;
+}
+.catch-up-card {
+  background: linear-gradient(135deg, #fff3cd, #ffeeba);
+  border: 1px solid #f39c12;
+}
+.level-up-card {
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  border: 1px solid #2ecc71;
+}
+.adaptive-card h4 {
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.adaptive-card p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #555;
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .adaptive-paths { grid-template-columns: 1fr; }
+}
+
+/* ---- Gamification Reward Banner ---- */
+.reward-banner {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  color: #fff;
+  padding: 14px 20px;
+  border-radius: 14px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: bounceIn 0.6s ease;
+  box-shadow: 0 4px 20px rgba(245, 87, 108, 0.3);
+}
+.reward-icon { font-size: 28px; flex-shrink: 0; }
+.reward-banner p {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.5;
+}
+[dir="rtl"] .reward-banner { text-align: right; }
+
+/* RTL for checkpoint options */
+[dir="rtl"] .checkpoint-option { text-align: right; }
+[dir="rtl"] .checkpoint-feedback { text-align: right; }
