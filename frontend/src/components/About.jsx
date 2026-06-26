@@ -1,22 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { getTranslation } from '../i18n';
 import './About.css';
 
-export default function About() {
-  const [language, setLanguage] = useState('ar');
+export default function About({ language }) {
   const t = getTranslation(language);
-
-  const toggleLanguage = () => {
-    setLanguage((prev) => (prev === 'ar' ? 'en' : 'ar'));
-  };
-
   const isAr = language === 'ar';
 
   return (
     <div className={`about-page ${isAr ? 'rtl' : 'ltr'}`}>
-      <button className="about-lang-toggle" onClick={toggleLanguage}>
-        {isAr ? 'EN' : 'ع'}
-      </button>
 
       <div className="about-card">
         <div className="about-logo">🎓</div>

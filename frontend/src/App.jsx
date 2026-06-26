@@ -146,7 +146,7 @@ export default function App() {
         )}
         {step === STEPS.ABOUT && (
           <div>
-            <About />
+            <About language={language} />
             <div style={{ textAlign: 'center', padding: '20px' }}>
               <button className="btn btn-secondary" onClick={() => setStep(STEPS.HOME)}>
                 {language === 'ar' ? 'العودة' : 'Back'}
