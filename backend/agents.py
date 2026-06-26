@@ -854,8 +854,8 @@ def _validate_json_structure(data: dict, content_type: str, language: str) -> li
                     errors.append(f"questions[{i}] missing 'question'")
                 if "options" not in q or not isinstance(q["options"], list):
                     errors.append(f"questions[{i}] missing or invalid 'options'")
-                if "correct_index" not in q:
-                    errors.append(f"questions[{i}] missing 'correct_index'")
+                if "correct_answer" not in q and "correct_index" not in q:
+                    errors.append(f"questions[{i}] missing 'correct_answer'")
 
     elif content_type == "evaluation":
         if "score" not in data and "overall_score" not in data:
