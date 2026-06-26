@@ -1,0 +1,172 @@
+.about-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: relative;
+}
+
+.about-page.rtl {
+  direction: rtl;
+}
+
+.about-page.ltr {
+  direction: ltr;
+}
+
+.about-lang-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 10;
+  transition: all 0.2s;
+}
+
+.about-page.rtl .about-lang-toggle {
+  right: auto;
+  left: 20px;
+}
+
+.about-lang-toggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.about-card {
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  max-width: 680px;
+  width: 100%;
+  padding: 48px 40px;
+  text-align: center;
+}
+
+.about-logo {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.about-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #1a1a2e;
+  margin: 0 0 8px;
+}
+
+.about-subtitle {
+  font-size: 16px;
+  color: #666;
+  margin: 0 0 32px;
+}
+
+.about-section {
+  text-align: start;
+  margin-bottom: 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid #eee;
+}
+
+.about-section:last-of-type {
+  border-bottom: none;
+}
+
+.about-section h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 14px;
+}
+
+.about-section p {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #444;
+  margin: 0;
+}
+
+.about-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.about-features li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 15px;
+  color: #333;
+}
+
+.about-page.rtl .about-features li {
+  direction: rtl;
+}
+
+.feature-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.about-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.about-page.rtl .about-tags {
+  direction: rtl;
+}
+
+.tag {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.about-developer {
+  margin: 0 0 12px;
+  font-size: 15px;
+  color: #444;
+}
+
+.about-email {
+  display: inline-block;
+  background: #f0f0f0;
+  padding: 10px 20px;
+  border-radius: 12px;
+  color: #333;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.about-email:hover {
+  background: #e0e0e0;
+}
+
+.about-footer {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.about-footer p {
+  font-size: 13px;
+  color: #999;
+  margin: 0;
+}
