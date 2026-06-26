@@ -691,7 +691,7 @@ def _clean_json(text: str) -> str:
     return ''.join(result)
 
 
-async def _generate_json(agent_key: str, prompt: str, retry_hint: str = "", logger=None, agent_name: str = "", step: str = "", attempt: int = 1, reason: str = "") -> dict:
+async def _generate_json(agent_key: str, prompt: str, retry_hint: str = "", logger=None, agent_name: str = "", step: str = "", attempt: int = 1, reason: str = "", content_type: str = "", language: str = "") -> dict:
     for i in range(3):
         actual_attempt = attempt + i
         if logger:
@@ -715,20 +715,12 @@ async def _generate_json(agent_key: str, prompt: str, retry_hint: str = "", logg
             cleaned = cleaned[:-1]
         try:
             parsed = json.loads(cleaned, strict=False)
-            if logger:
-                logger.set_parsed_json(parsed)
-                logger.end_agent_call()
-            return parsed
         except json.JSONDecodeError:
             try:
                 repaired = _repair_json(cleaned)
                 if repaired.endswith(','):
                     repaired = repaired[:-1]
                 parsed = json.loads(repaired, strict=False)
-                if logger:
-                    logger.set_parsed_json(parsed)
-                    logger.end_agent_call()
-                return parsed
             except json.JSONDecodeError:
                 if logger:
                     logger.set_error(f"JSON parse error on attempt {actual_attempt}")
@@ -736,12 +728,203 @@ async def _generate_json(agent_key: str, prompt: str, retry_hint: str = "", logg
                 if i < 2 and retry_hint:
                     prompt += "\n\n" + retry_hint
                     reason = "json_parse_error"
+                    continue
                 else:
                     raise
+
+        if content_type:
+            struct_errors = _validate_json_structure(parsed, content_type, language)
+            lang_errors = _validate_language(parsed, content_type, language) if language else []
+            all_errors = struct_errors + lang_errors
+
+            if all_errors:
+                if logger:
+                    logger.set_error(f"Validation errors on attempt {actual_attempt}: {'; '.join(all_errors)}")
+                    logger.end_agent_call()
+                if i < 2:
+                    feedback = _build_validation_feedback(all_errors, language)
+                    prompt += f"\n\n{feedback}"
+                    reason = "validation_failed"
+                    if logger:
+                        logger.begin_agent_call(agent_name, step, prompt, attempt=actual_attempt + 1, reason=reason)
+                    continue
+                else:
+                    raise ValueError(f"Validation failed after {actual_attempt} attempts: {'; '.join(all_errors)}")
+
+        if logger:
+            logger.set_parsed_json(parsed)
+            logger.end_agent_call()
+        return parsed
 
 
 def _get_agent_key(lang: str, ar_key: str, en_key: str):
     return en_key if lang == "en" else ar_key
+
+
+def _has_arabic(text: str) -> bool:
+    return bool(re.search(r'[\u0600-\u06FF]', text))
+
+
+def _has_english(text: str) -> bool:
+    return bool(re.search(r'[a-zA-Z]{3,}', text))
+
+
+def _arabic_ratio(text: str) -> float:
+    if not text:
+        return 0.0
+    arabic_chars = len(re.findall(r'[\u0600-\u06FF]', text))
+    total_chars = len(re.findall(r'[\u0600-\u06FF\u0041-\u005a\u0061-\u007a]', text))
+    return arabic_chars / total_chars if total_chars > 0 else 0.0
+
+
+def _validate_json_structure(data: dict, content_type: str, language: str) -> list:
+    errors = []
+
+    if content_type == "lesson":
+        required_fields = {
+            "title": str,
+            "hook": str,
+            "content": str,
+            "key_points": list,
+            "examples": list,
+            "sections_images": dict,
+            "interactive_checkpoints": list,
+            "adaptive_paths": dict,
+            "gamification_reward": str,
+        }
+        for field, expected_type in required_fields.items():
+            if field not in data:
+                errors.append(f"Missing required field: {field}")
+            elif not isinstance(data[field], expected_type):
+                errors.append(f"Field '{field}' must be {expected_type.__name__}, got {type(data[field]).__name__}")
+            elif expected_type in (str, list, dict) and not data[field]:
+                errors.append(f"Field '{field}' is empty")
+
+        if not errors:
+            if len(data.get("key_points", [])) < 3:
+                errors.append("key_points must have at least 3 items")
+            if len(data.get("examples", [])) < 2:
+                errors.append("examples must have at least 2 items")
+            if len(data.get("interactive_checkpoints", [])) < 1:
+                errors.append("interactive_checkpoints must have at least 1 item")
+
+            content_text = data.get("content", "")
+            word_count = len(content_text.split())
+            if word_count < 100:
+                errors.append(f"content too short ({word_count} words, minimum 100)")
+
+            adaptive = data.get("adaptive_paths", {})
+            if not adaptive.get("catch_up"):
+                errors.append("adaptive_paths.catch_up is missing or empty")
+            if not adaptive.get("level_up"):
+                errors.append("adaptive_paths.level_up is missing or empty")
+
+    elif content_type == "syllabus":
+        if "modules" not in data:
+            errors.append("Missing required field: modules")
+        elif not isinstance(data["modules"], list):
+            errors.append("Field 'modules' must be a list")
+        elif len(data["modules"]) < 1:
+            errors.append("modules must have at least 1 item")
+        else:
+            for i, mod in enumerate(data["modules"]):
+                if not isinstance(mod, dict):
+                    errors.append(f"modules[{i}] must be a dict")
+                    continue
+                if "title" not in mod:
+                    errors.append(f"modules[{i}] missing 'title'")
+                if "description" not in mod:
+                    errors.append(f"modules[{i}] missing 'description'")
+                if "learning_outcomes" not in mod:
+                    errors.append(f"modules[{i}] missing 'learning_outcomes'")
+
+    elif content_type == "quiz":
+        if "questions" not in data:
+            errors.append("Missing required field: questions")
+        elif not isinstance(data["questions"], list):
+            errors.append("Field 'questions' must be a list")
+        elif len(data["questions"]) < 1:
+            errors.append("questions must have at least 1 item")
+        else:
+            for i, q in enumerate(data["questions"]):
+                if not isinstance(q, dict):
+                    errors.append(f"questions[{i}] must be a dict")
+                    continue
+                if "question" not in q:
+                    errors.append(f"questions[{i}] missing 'question'")
+                if "options" not in q or not isinstance(q["options"], list):
+                    errors.append(f"questions[{i}] missing or invalid 'options'")
+                if "correct_index" not in q:
+                    errors.append(f"questions[{i}] missing 'correct_index'")
+
+    elif content_type == "evaluation":
+        if "score" not in data and "overall_score" not in data:
+            errors.append("Missing score field (score or overall_score)")
+
+    return errors
+
+
+def _validate_language(data: dict, content_type: str, language: str) -> list:
+    errors = []
+    if language != "ar":
+        return errors
+
+    if content_type == "lesson":
+        text_fields = ["title", "hook", "content"]
+        for field in text_fields:
+            value = data.get(field, "")
+            if value and _has_english(value) and _arabic_ratio(value) < 0.5:
+                errors.append(f"Field '{field}' appears to be in English, expected Arabic")
+
+        for i, point in enumerate(data.get("key_points", [])):
+            if isinstance(point, str) and _has_english(point) and _arabic_ratio(point) < 0.5:
+                errors.append(f"key_points[{i}] appears to be in English, expected Arabic")
+
+        for i, example in enumerate(data.get("examples", [])):
+            if isinstance(example, str) and _has_english(example) and _arabic_ratio(example) < 0.5:
+                errors.append(f"examples[{i}] appears to be in English, expected Arabic")
+
+        checkpoints = data.get("interactive_checkpoints", [])
+        for i, cp in enumerate(checkpoints):
+            if isinstance(cp, dict):
+                for field in ["question", "success_message", "failure_message"]:
+                    value = cp.get(field, "")
+                    if value and _has_english(value) and _arabic_ratio(value) < 0.5:
+                        errors.append(f"interactive_checkpoints[{i}].{field} appears to be in English, expected Arabic")
+
+    elif content_type == "syllabus":
+        if "topic" in data and _has_english(data["topic"]) and _arabic_ratio(data["topic"]) < 0.5:
+            errors.append("Field 'topic' appears to be in English, expected Arabic")
+        for i, mod in enumerate(data.get("modules", [])):
+            if isinstance(mod, dict):
+                for field in ["title", "description"]:
+                    value = mod.get(field, "")
+                    if value and _has_english(value) and _arabic_ratio(value) < 0.5:
+                        errors.append(f"modules[{i}].{field} appears to be in English, expected Arabic")
+
+    return errors
+
+
+def _build_validation_feedback(errors: list, language: str) -> str:
+    if language == "ar":
+        feedback = "التحقق فشل due to the following issues:\n"
+        for err in errors:
+            feedback += f"- {err}\n"
+        feedback += (
+            "\nIMPORTANT: Fix ALL issues above. Output ONLY valid JSON.\n"
+            "Every Arabic text field MUST contain Arabic characters only (no English words).\n"
+            "Do not use markdown or code fences. Return raw JSON only."
+        )
+    else:
+        feedback = "Validation failed due to the following issues:\n"
+        for err in errors:
+            feedback += f"- {err}\n"
+        feedback += (
+            "\nIMPORTANT: Fix ALL issues above. Output ONLY valid JSON.\n"
+            "Every text field MUST contain English text.\n"
+            "Do not use markdown or code fences. Return raw JSON only."
+        )
+    return feedback
 
 
 def _retry_hint(lang: str):
@@ -769,7 +952,7 @@ async def generate_syllabus(grade: str, subject: str, topic: str, level: str, go
         if goals:
             prompt += f"أهداف المتعلم: {goals}\n"
         prompt += "\nقم بإنشاء منهج تعليمي."
-    syllabus = await _generate_json(agent_key, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="generate_syllabus")
+    syllabus = await _generate_json(agent_key, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="generate_syllabus", content_type="syllabus", language=language)
 
     if curriculum:
         validation = await validate_syllabus(syllabus, grade, subject, topic, level, curriculum, language)
@@ -792,7 +975,7 @@ async def generate_syllabus(grade: str, subject: str, topic: str, level: str, go
                     + "\n".join(f"- {s}" for s in suggestions)
                     + "\n\nيرجى إعادة إنشاء المنهج مع معالجة هذه المشاكل."
                 )
-            syllabus = await _generate_json(agent_key, retry_prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="generate_syllabus_retry", attempt=2, reason="curriculum_misaligned")
+            syllabus = await _generate_json(agent_key, retry_prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="generate_syllabus_retry", attempt=2, reason="curriculum_misaligned", content_type="syllabus", language=language)
 
     return syllabus
 
@@ -844,7 +1027,7 @@ async def generate_lesson(grade: str, subject: str, topic: str, level: str, modu
             prompt += f"\nملاحظات الجودة من المحاولة السابقة:\n{quality_feedback}\n"
         prompt += "\nقم بإنشاء محتوى درس لهذه الوحدة."
         hint = "تأكد من أن الـ JSON صحيح تمامًا. استخدم \\\" داخل النصوص عند الحاجة. لا تترك علامات اقتباس غير مهربة في المحتوى."
-    lesson = await _generate_json(agent_key, prompt, hint, logger=logger, agent_name=agent_name, step="generate_lesson")
+    lesson = await _generate_json(agent_key, prompt, hint, logger=logger, agent_name=agent_name, step="generate_lesson", content_type="lesson", language=language)
 
     if curriculum:
         validation = await validate_lesson_content(lesson, grade, subject, topic, level, curriculum, language, logger=logger)
@@ -867,7 +1050,7 @@ async def generate_lesson(grade: str, subject: str, topic: str, level: str, modu
                     + "\n".join(f"- {s}" for s in suggestions)
                     + "\n\nيرجى إعادة إنشاء محتوى الدرس مع معالجة هذه المشاكل."
                 )
-            lesson = await _generate_json(agent_key, retry_prompt, hint, logger=logger, agent_name=agent_name, step="generate_lesson_retry", attempt=2, reason="curriculum_misaligned")
+            lesson = await _generate_json(agent_key, retry_prompt, hint, logger=logger, agent_name=agent_name, step="generate_lesson_retry", attempt=2, reason="curriculum_misaligned", content_type="lesson", language=language)
 
     return lesson
 
@@ -899,7 +1082,7 @@ async def generate_quiz(topic: str, level: str, lesson_content: str, language: s
             f"محتوى الدرس:\n{lesson_content}\n\nقم بإنشاء أسئلة اختبار."
         )
         hint = "تأكد من أن JSON صالح تمامًا بدون أخطاء."
-    return await _generate_json(agent_key, prompt, hint, logger=logger, agent_name=agent_name, step="generate_quiz")
+    return await _generate_json(agent_key, prompt, hint, logger=logger, agent_name=agent_name, step="generate_quiz", content_type="quiz", language=language)
 
 
 async def evaluate_answers(questions: list, user_answers: list, correct_answers: list, language: str = "ar") -> dict:
@@ -918,7 +1101,7 @@ async def evaluate_answers(questions: list, user_answers: list, correct_answers:
             f"الإجابات الصحيحة: {json.dumps(correct_answers)}\n\nقم بتقييم أداء المستخدم."
         )
         hint = "تأكد من أن JSON صالح تمامًا بدون أخطاء."
-    return await _generate_json(agent_key, prompt, hint)
+    return await _generate_json(agent_key, prompt, hint, content_type="evaluation", language=language)
 
 
 async def validate_syllabus(content: dict, grade: str, subject: str, topic: str, level: str, curriculum: str, language: str = "ar", logger=None) -> dict:
