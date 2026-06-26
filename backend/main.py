@@ -178,10 +178,10 @@ class SubmitRequest(BaseModel):
 
 @app.on_event("startup")
 def startup():
-    api_key = os.getenv("GEMINI_API_KEY", "")
+    api_key = os.getenv("MISTRAL_API_KEY", "")
     if not api_key:
-        print("Warning: GEMINI_API_KEY not set in backend/.env")
-        print("   Get a key from: https://aistudio.google.com/apikey")
+        print("Warning: MISTRAL_API_KEY not set in backend/.env")
+        print("   Get a key from: https://console.mistral.ai/api-keys")
     init_db()
 
 

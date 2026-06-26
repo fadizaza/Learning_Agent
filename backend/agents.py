@@ -14,9 +14,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from google.adk.agents import LlmAgent, SequentialAgent
-from google.adk.runners import InMemoryRunner
-from google.genai import types
+from openai import AsyncOpenAI
+
+
+_openai_client = None
+
+
+def _get_client():
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = AsyncOpenAI(
+            api_key=os.getenv("MISTRAL_API_KEY"),
+            base_url="https://api.mistral.ai/v1",
+        )
+    return _openai_client
 
 
 def _repair_json(text: str) -> str:
@@ -81,14 +92,14 @@ def _repair_json(text: str) -> str:
         i += 1
     return ''.join(result)
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
 
-config_planner = types.GenerateContentConfig(temperature=0.4, max_output_tokens=4096)
-config_content = types.GenerateContentConfig(temperature=0.7, max_output_tokens=8192)
-config_quiz = types.GenerateContentConfig(temperature=0.3, max_output_tokens=8192)
-config_eval = types.GenerateContentConfig(temperature=0.2, max_output_tokens=2048)
-config_validator = types.GenerateContentConfig(temperature=0.3, max_output_tokens=4096)
-config_quality = types.GenerateContentConfig(temperature=0.3, max_output_tokens=4096)
+config_planner = {"temperature": 0.4, "max_tokens": 4096}
+config_content = {"temperature": 0.7, "max_tokens": 8192}
+config_quiz = {"temperature": 0.3, "max_tokens": 8192}
+config_eval = {"temperature": 0.2, "max_tokens": 2048}
+config_validator = {"temperature": 0.3, "max_tokens": 4096}
+config_quality = {"temperature": 0.3, "max_tokens": 4096}
 
 PLANNER_INSTRUCTION_AR = (
     "أنت خبير في تصميم الدروس التعليمية. بناءً على الصف والمادة والموضوع ومستوى المتعلم "
@@ -573,159 +584,38 @@ QUALITY_INSTRUCTION_EN = (
     "All content must be in English."
 )
 
-planner_ar = LlmAgent(
-    name="PlannerAgent_AR",
-    model=MODEL,
-    instruction=PLANNER_INSTRUCTION_AR,
-    output_key="syllabus_json",
-    generate_content_config=config_planner,
-)
-
-planner_en = LlmAgent(
-    name="PlannerAgent_EN",
-    model=MODEL,
-    instruction=PLANNER_INSTRUCTION_EN,
-    output_key="syllabus_json",
-    generate_content_config=config_planner,
-)
-
-content_creator_ar = LlmAgent(
-    name="ContentAgent_AR",
-    model=MODEL,
-    instruction=CONTENT_INSTRUCTION_AR,
-    output_key="lesson_json",
-    generate_content_config=config_content,
-)
-
-content_creator_en = LlmAgent(
-    name="ContentAgent_EN",
-    model=MODEL,
-    instruction=CONTENT_INSTRUCTION_EN,
-    output_key="lesson_json",
-    generate_content_config=config_content,
-)
-
-quiz_generator_ar = LlmAgent(
-    name="QuizAgent_AR",
-    model=MODEL,
-    instruction=QUIZ_INSTRUCTION_AR,
-    output_key="quiz_json",
-    generate_content_config=config_quiz,
-)
-
-quiz_generator_en = LlmAgent(
-    name="QuizAgent_EN",
-    model=MODEL,
-    instruction=QUIZ_INSTRUCTION_EN,
-    output_key="quiz_json",
-    generate_content_config=config_quiz,
-)
-
-evaluator_ar = LlmAgent(
-    name="EvaluatorAgent_AR",
-    model=MODEL,
-    instruction=EVAL_INSTRUCTION_AR,
-    output_key="evaluation_json",
-    generate_content_config=config_eval,
-)
-
-evaluator_en = LlmAgent(
-    name="EvaluatorAgent_EN",
-    model=MODEL,
-    instruction=EVAL_INSTRUCTION_EN,
-    output_key="evaluation_json",
-    generate_content_config=config_eval,
-)
-
-syllabus_validator_ar = LlmAgent(
-    name="SyllabusValidator_AR",
-    model=MODEL,
-    instruction=SYLLABUS_VALIDATOR_INSTRUCTION_AR,
-    output_key="validation_json",
-    generate_content_config=config_validator,
-)
-
-syllabus_validator_en = LlmAgent(
-    name="SyllabusValidator_EN",
-    model=MODEL,
-    instruction=SYLLABUS_VALIDATOR_INSTRUCTION_EN,
-    output_key="validation_json",
-    generate_content_config=config_validator,
-)
-
-content_validator_ar = LlmAgent(
-    name="ContentValidator_AR",
-    model=MODEL,
-    instruction=CONTENT_VALIDATOR_INSTRUCTION_AR,
-    output_key="validation_json",
-    generate_content_config=config_validator,
-)
-
-content_validator_en = LlmAgent(
-    name="ContentValidator_EN",
-    model=MODEL,
-    instruction=CONTENT_VALIDATOR_INSTRUCTION_EN,
-    output_key="validation_json",
-    generate_content_config=config_validator,
-)
-
-quality_ar = LlmAgent(
-    name="QualityAgent_AR",
-    model=MODEL,
-    instruction=QUALITY_INSTRUCTION_AR,
-    output_key="quality_json",
-    generate_content_config=config_quality,
-)
-
-quality_en = LlmAgent(
-    name="QualityAgent_EN",
-    model=MODEL,
-    instruction=QUALITY_INSTRUCTION_EN,
-    output_key="quality_json",
-    generate_content_config=config_quality,
-)
-
-learning_pipeline_ar = SequentialAgent(
-    name="LearningPipeline_AR",
-    sub_agents=[planner_ar, content_creator_ar, quiz_generator_ar, evaluator_ar],
-)
-
-learning_pipeline_en = SequentialAgent(
-    name="LearningPipeline_EN",
-    sub_agents=[planner_en, content_creator_en, quiz_generator_en, evaluator_en],
-)
-
-PLANNER_RUNNER_AR = InMemoryRunner(agent=planner_ar, app_name="learning_app")
-PLANNER_RUNNER_EN = InMemoryRunner(agent=planner_en, app_name="learning_app")
-CONTENT_RUNNER_AR = InMemoryRunner(agent=content_creator_ar, app_name="learning_app")
-CONTENT_RUNNER_EN = InMemoryRunner(agent=content_creator_en, app_name="learning_app")
-QUIZ_RUNNER_AR = InMemoryRunner(agent=quiz_generator_ar, app_name="learning_app")
-QUIZ_RUNNER_EN = InMemoryRunner(agent=quiz_generator_en, app_name="learning_app")
-EVAL_RUNNER_AR = InMemoryRunner(agent=evaluator_ar, app_name="learning_app")
-EVAL_RUNNER_EN = InMemoryRunner(agent=evaluator_en, app_name="learning_app")
-SYLLABUS_VALIDATOR_RUNNER_AR = InMemoryRunner(agent=syllabus_validator_ar, app_name="learning_app")
-SYLLABUS_VALIDATOR_RUNNER_EN = InMemoryRunner(agent=syllabus_validator_en, app_name="learning_app")
-CONTENT_VALIDATOR_RUNNER_AR = InMemoryRunner(agent=content_validator_ar, app_name="learning_app")
-CONTENT_VALIDATOR_RUNNER_EN = InMemoryRunner(agent=content_validator_en, app_name="learning_app")
-QUALITY_RUNNER_AR = InMemoryRunner(agent=quality_ar, app_name="learning_app")
-QUALITY_RUNNER_EN = InMemoryRunner(agent=quality_en, app_name="learning_app")
-PIPELINE_RUNNER_AR = InMemoryRunner(agent=learning_pipeline_ar, app_name="learning_pipeline")
-PIPELINE_RUNNER_EN = InMemoryRunner(agent=learning_pipeline_en, app_name="learning_pipeline")
+AGENT_CONFIGS = {
+    "planner_ar": (PLANNER_INSTRUCTION_AR, config_planner),
+    "planner_en": (PLANNER_INSTRUCTION_EN, config_planner),
+    "content_ar": (CONTENT_INSTRUCTION_AR, config_content),
+    "content_en": (CONTENT_INSTRUCTION_EN, config_content),
+    "quiz_ar": (QUIZ_INSTRUCTION_AR, config_quiz),
+    "quiz_en": (QUIZ_INSTRUCTION_EN, config_quiz),
+    "eval_ar": (EVAL_INSTRUCTION_AR, config_eval),
+    "eval_en": (EVAL_INSTRUCTION_EN, config_eval),
+    "syllabus_validator_ar": (SYLLABUS_VALIDATOR_INSTRUCTION_AR, config_validator),
+    "syllabus_validator_en": (SYLLABUS_VALIDATOR_INSTRUCTION_EN, config_validator),
+    "content_validator_ar": (CONTENT_VALIDATOR_INSTRUCTION_AR, config_validator),
+    "content_validator_en": (CONTENT_VALIDATOR_INSTRUCTION_EN, config_validator),
+    "quality_ar": (QUALITY_INSTRUCTION_AR, config_quality),
+    "quality_en": (QUALITY_INSTRUCTION_EN, config_quality),
+}
 
 
-async def _run_agent(runner: InMemoryRunner, prompt: str) -> str | None:
-    events = await runner.run_debug(
-        user_messages=prompt,
-        user_id="api_user",
-        session_id="api_session",
-        quiet=True,
+async def _run_agent(agent_key: str, prompt: str) -> str | None:
+    instruction, cfg = AGENT_CONFIGS[agent_key]
+    client = _get_client()
+    response = await client.chat.completions.create(
+        model=MODEL,
+        messages=[
+            {"role": "system", "content": instruction},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=cfg["temperature"],
+        max_tokens=cfg["max_tokens"],
     )
-    for event in reversed(events):
-        if event.content and event.content.parts:
-            text = "".join(p.text for p in event.content.parts if p.text)
-            if text:
-                return text.strip()
-    return None
+    text = response.choices[0].message.content
+    return text.strip() if text else None
 
 
 def _normalize_arabic_json(text: str) -> str:
@@ -801,12 +691,12 @@ def _clean_json(text: str) -> str:
     return ''.join(result)
 
 
-async def _generate_json(runner: InMemoryRunner, prompt: str, retry_hint: str = "", logger=None, agent_name: str = "", step: str = "", attempt: int = 1, reason: str = "") -> dict:
+async def _generate_json(agent_key: str, prompt: str, retry_hint: str = "", logger=None, agent_name: str = "", step: str = "", attempt: int = 1, reason: str = "") -> dict:
     for i in range(3):
         actual_attempt = attempt + i
         if logger:
             logger.begin_agent_call(agent_name, step, prompt, attempt=actual_attempt, reason=reason if i > 0 else "")
-        raw = await _run_agent(runner, prompt)
+        raw = await _run_agent(agent_key, prompt)
         if logger:
             logger.set_raw_response(raw or "")
         if not raw:
@@ -850,8 +740,8 @@ async def _generate_json(runner: InMemoryRunner, prompt: str, retry_hint: str = 
                     raise
 
 
-def _get_runner(lang: str, ar_runner, en_runner):
-    return en_runner if lang == "en" else ar_runner
+def _get_agent_key(lang: str, ar_key: str, en_key: str):
+    return en_key if lang == "en" else ar_key
 
 
 def _retry_hint(lang: str):
@@ -863,7 +753,7 @@ def _retry_hint(lang: str):
 
 
 async def generate_syllabus(grade: str, subject: str, topic: str, level: str, goals: str = "", language: str = "ar", curriculum: str = "", logger=None) -> dict:
-    runner = _get_runner(language, PLANNER_RUNNER_AR, PLANNER_RUNNER_EN)
+    agent_key = _get_agent_key(language, "planner_ar", "planner_en")
     agent_name = "PlannerAgent_AR" if language == "ar" else "PlannerAgent_EN"
     if language == "en":
         prompt = f"Grade: {grade}\nSubject: {subject}\nTopic: {topic}\nLearner level: {level}\n"
@@ -879,7 +769,7 @@ async def generate_syllabus(grade: str, subject: str, topic: str, level: str, go
         if goals:
             prompt += f"أهداف المتعلم: {goals}\n"
         prompt += "\nقم بإنشاء منهج تعليمي."
-    syllabus = await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="generate_syllabus")
+    syllabus = await _generate_json(agent_key, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="generate_syllabus")
 
     if curriculum:
         validation = await validate_syllabus(syllabus, grade, subject, topic, level, curriculum, language)
@@ -902,13 +792,13 @@ async def generate_syllabus(grade: str, subject: str, topic: str, level: str, go
                     + "\n".join(f"- {s}" for s in suggestions)
                     + "\n\nيرجى إعادة إنشاء المنهج مع معالجة هذه المشاكل."
                 )
-            syllabus = await _generate_json(runner, retry_prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="generate_syllabus_retry", attempt=2, reason="curriculum_misaligned")
+            syllabus = await _generate_json(agent_key, retry_prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="generate_syllabus_retry", attempt=2, reason="curriculum_misaligned")
 
     return syllabus
 
 
 async def generate_lesson(grade: str, subject: str, topic: str, level: str, module_title: str, goals: str = "", language: str = "ar", curriculum: str = "", logger=None, quality_feedback: str = "", module_description: str = "", learning_outcomes: list = None, grade_number: int = 0) -> dict:
-    runner = _get_runner(language, CONTENT_RUNNER_AR, CONTENT_RUNNER_EN)
+    agent_key = _get_agent_key(language, "content_ar", "content_en")
     agent_name = "ContentAgent_AR" if language == "ar" else "ContentAgent_EN"
     if language == "en":
         prompt = (
@@ -954,7 +844,7 @@ async def generate_lesson(grade: str, subject: str, topic: str, level: str, modu
             prompt += f"\nملاحظات الجودة من المحاولة السابقة:\n{quality_feedback}\n"
         prompt += "\nقم بإنشاء محتوى درس لهذه الوحدة."
         hint = "تأكد من أن الـ JSON صحيح تمامًا. استخدم \\\" داخل النصوص عند الحاجة. لا تترك علامات اقتباس غير مهربة في المحتوى."
-    lesson = await _generate_json(runner, prompt, hint, logger=logger, agent_name=agent_name, step="generate_lesson")
+    lesson = await _generate_json(agent_key, prompt, hint, logger=logger, agent_name=agent_name, step="generate_lesson")
 
     if curriculum:
         validation = await validate_lesson_content(lesson, grade, subject, topic, level, curriculum, language, logger=logger)
@@ -977,13 +867,13 @@ async def generate_lesson(grade: str, subject: str, topic: str, level: str, modu
                     + "\n".join(f"- {s}" for s in suggestions)
                     + "\n\nيرجى إعادة إنشاء محتوى الدرس مع معالجة هذه المشاكل."
                 )
-            lesson = await _generate_json(runner, retry_prompt, hint, logger=logger, agent_name=agent_name, step="generate_lesson_retry", attempt=2, reason="curriculum_misaligned")
+            lesson = await _generate_json(agent_key, retry_prompt, hint, logger=logger, agent_name=agent_name, step="generate_lesson_retry", attempt=2, reason="curriculum_misaligned")
 
     return lesson
 
 
 async def generate_quiz(topic: str, level: str, lesson_content: str, language: str = "ar", curriculum: str = "", logger=None, quality_feedback: str = "") -> dict:
-    runner = _get_runner(language, QUIZ_RUNNER_AR, QUIZ_RUNNER_EN)
+    agent_key = _get_agent_key(language, "quiz_ar", "quiz_en")
     agent_name = "QuizAgent_AR" if language == "ar" else "QuizAgent_EN"
     if language == "en":
         prompt = (
@@ -1009,11 +899,11 @@ async def generate_quiz(topic: str, level: str, lesson_content: str, language: s
             f"محتوى الدرس:\n{lesson_content}\n\nقم بإنشاء أسئلة اختبار."
         )
         hint = "تأكد من أن JSON صالح تمامًا بدون أخطاء."
-    return await _generate_json(runner, prompt, hint, logger=logger, agent_name=agent_name, step="generate_quiz")
+    return await _generate_json(agent_key, prompt, hint, logger=logger, agent_name=agent_name, step="generate_quiz")
 
 
 async def evaluate_answers(questions: list, user_answers: list, correct_answers: list, language: str = "ar") -> dict:
-    runner = _get_runner(language, EVAL_RUNNER_AR, EVAL_RUNNER_EN)
+    agent_key = _get_agent_key(language, "eval_ar", "eval_en")
     if language == "en":
         prompt = (
             f"Questions: {json.dumps(questions)}\n"
@@ -1028,11 +918,11 @@ async def evaluate_answers(questions: list, user_answers: list, correct_answers:
             f"الإجابات الصحيحة: {json.dumps(correct_answers)}\n\nقم بتقييم أداء المستخدم."
         )
         hint = "تأكد من أن JSON صالح تمامًا بدون أخطاء."
-    return await _generate_json(runner, prompt, hint)
+    return await _generate_json(agent_key, prompt, hint)
 
 
 async def validate_syllabus(content: dict, grade: str, subject: str, topic: str, level: str, curriculum: str, language: str = "ar", logger=None) -> dict:
-    runner = _get_runner(language, SYLLABUS_VALIDATOR_RUNNER_AR, SYLLABUS_VALIDATOR_RUNNER_EN)
+    agent_key = _get_agent_key(language, "syllabus_validator_ar", "syllabus_validator_en")
     agent_name = "SyllabusValidator_AR" if language == "ar" else "SyllabusValidator_EN"
     content_str = json.dumps(content, ensure_ascii=False)
     if language == "en":
@@ -1052,7 +942,7 @@ async def validate_syllabus(content: dict, grade: str, subject: str, topic: str,
             f"هل مواضيع الوحدات ونتائج التعلم مناسبة لهذا المنهاج؟"
         )
     try:
-        result = await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="validate_syllabus")
+        result = await _generate_json(agent_key, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="validate_syllabus")
         if "criteria" not in result:
             result["criteria"] = {}
         if "is_aligned" not in result:
@@ -1063,7 +953,7 @@ async def validate_syllabus(content: dict, grade: str, subject: str, topic: str,
 
 
 async def validate_lesson_content(content: dict, grade: str, subject: str, topic: str, level: str, curriculum: str, language: str = "ar", logger=None) -> dict:
-    runner = _get_runner(language, CONTENT_VALIDATOR_RUNNER_AR, CONTENT_VALIDATOR_RUNNER_EN)
+    agent_key = _get_agent_key(language, "content_validator_ar", "content_validator_en")
     agent_name = "ContentValidator_AR" if language == "ar" else "ContentValidator_EN"
     content_str = json.dumps(content, ensure_ascii=False)
     if language == "en":
@@ -1083,7 +973,7 @@ async def validate_lesson_content(content: dict, grade: str, subject: str, topic
             f"هل يغطي الموضوعات المطلوبة؟ هل يطابق أسلوب المنهاج ومستوى التعقيد؟"
         )
     try:
-        result = await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="validate_lesson_content")
+        result = await _generate_json(agent_key, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="validate_lesson_content")
         if "criteria" not in result:
             result["criteria"] = {}
         if "is_aligned" not in result:
@@ -1094,7 +984,7 @@ async def validate_lesson_content(content: dict, grade: str, subject: str, topic
 
 
 async def check_content_quality(content: dict, content_type: str, language: str = "ar", logger=None) -> dict:
-    runner = _get_runner(language, QUALITY_RUNNER_AR, QUALITY_RUNNER_EN)
+    agent_key = _get_agent_key(language, "quality_ar", "quality_en")
     agent_name = "QualityAgent_AR" if language == "ar" else "QualityAgent_EN"
     content_str = json.dumps(content, ensure_ascii=False)
     if language == "en":
@@ -1114,7 +1004,7 @@ async def check_content_quality(content: dict, content_type: str, language: str 
             f"لا تتحقق من وجود الأقسام أو عدد الكلمات — قم فقط بتقييم الجودة."
         )
     try:
-        result = await _generate_json(runner, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="check_quality")
+        result = await _generate_json(agent_key, prompt, _retry_hint(language), logger=logger, agent_name=agent_name, step="check_quality")
         if "criteria" not in result:
             result["criteria"] = {}
         if "is_approved" not in result:
