@@ -94,6 +94,10 @@ def init_db():
         cursor.execute("ALTER TABLE sessions ADD COLUMN curriculum TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass
+    try:
+        cursor.execute("ALTER TABLE quiz_attempts ADD COLUMN retry_count INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
     # Clear old cached lessons so new fields (hook, interactive_checkpoints, etc.) are regenerated
     cursor.execute("DELETE FROM lesson_cache")
     conn.commit()
