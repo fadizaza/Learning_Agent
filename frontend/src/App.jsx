@@ -4,10 +4,11 @@ import Syllabus from './components/Syllabus';
 import Lesson from './components/Lesson';
 import Quiz from './components/Quiz';
 import Results from './components/Results';
+import About from './components/About';
 import { getTranslation } from './i18n';
 import './App.css';
 
-const STEPS = { HOME: 'home', SYLLABUS: 'syllabus', LESSON: 'lesson', QUIZ: 'quiz', RESULTS: 'results' };
+const STEPS = { HOME: 'home', SYLLABUS: 'syllabus', LESSON: 'lesson', QUIZ: 'quiz', RESULTS: 'results', ABOUT: 'about' };
 
 export default function App() {
   const [step, setStep] = useState(STEPS.HOME);
@@ -76,6 +77,10 @@ export default function App() {
     setStep(STEPS.HOME);
   };
 
+  const handleAbout = () => {
+    setStep(STEPS.ABOUT);
+  };
+
   return (
     <div className="app">
       <header className="app-header">
@@ -95,7 +100,7 @@ export default function App() {
         </div>
       </header>
       <main className="app-main">
-        {step === STEPS.HOME && <Home onStart={handleStart} language={language} t={t} />}
+        {step === STEPS.HOME && <Home onStart={handleStart} language={language} t={t} onAbout={handleAbout} />}
         {step === STEPS.SYLLABUS && session && (
           <Syllabus
             session={session}
@@ -138,6 +143,16 @@ export default function App() {
             language={language}
             t={t}
           />
+        )}
+        {step === STEPS.ABOUT && (
+          <div>
+            <About />
+            <div style={{ textAlign: 'center', padding: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => setStep(STEPS.HOME)}>
+                {language === 'ar' ? 'العودة' : 'Back'}
+              </button>
+            </div>
+          </div>
         )}
       </main>
     </div>

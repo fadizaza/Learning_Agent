@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { startSession } from '../api';
 import LoadingOverlay from './LoadingOverlay';
 
-export default function Home({ onStart, language, t }) {
+export default function Home({ onStart, language, t, onAbout }) {
   const [grade, setGrade] = useState('');
   const [subject, setSubject] = useState('');
   const [topic, setTopic] = useState('');
@@ -124,6 +124,11 @@ export default function Home({ onStart, language, t }) {
           <button type="submit" className="btn btn-primary" disabled={loading || !isValid}>
             {t.home.submit}
           </button>
+          {onAbout && (
+            <button type="button" className="btn btn-secondary" onClick={onAbout} style={{ marginTop: 10, width: '100%' }}>
+              {language === 'ar' ? 'عن المنصة' : 'About'}
+            </button>
+          )}
         </form>
       </div>
     </div>
