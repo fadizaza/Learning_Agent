@@ -96,6 +96,11 @@ const translations = {
       noContent: "لا يوجد محتوى لهذه الوحدة",
       prev: "▶ السابق",
       next: "التالي ◀",
+      checkpoints: "نقاط التحقق التفاعلية",
+      catchUp: "مسار المراجعة",
+      levelUp: "تحدي الترقية",
+      submit: "إرسال",
+      hint: "إظهار التلميح",
     },
     quiz: {
       title: "اختبار",
@@ -277,6 +282,11 @@ const translations = {
       noContent: "No content available for this module",
       prev: "◀ Previous",
       next: "Next ▶",
+      checkpoints: "Interactive Checkpoints",
+      catchUp: "Catch-Up Path",
+      levelUp: "Level-Up Challenge",
+      submit: "Submit",
+      hint: "Show Hint",
     },
     quiz: {
       title: "Quiz",

@@ -71,6 +71,34 @@ API_ERROR_MESSAGES = {
     },
 }
 
+GRADE_NUMBER_MAP_AR = {
+    "الأول": 1, "الثاني": 2, "الثالث": 3, "الرابع": 4,
+    "الخامس": 5, "السادس": 6, "السابع": 7, "الثامن": 8,
+    "التاسع": 9, "العاشر": 10, "الحادي عشر": 11, "الثاني عشر": 12,
+}
+
+GRADE_NUMBER_MAP_EN = {
+    "1st": 1, "2nd": 2, "3rd": 3, "4th": 4,
+    "5th": 5, "6th": 6, "7th": 7, "8th": 8,
+    "9th": 9, "10th": 10, "11th": 11, "12th": 12,
+}
+
+
+def _extract_grade_number(grade_text: str, language: str = "ar") -> int:
+    if language == "ar":
+        for key, num in GRADE_NUMBER_MAP_AR.items():
+            if key in grade_text:
+                return num
+    else:
+        for key, num in GRADE_NUMBER_MAP_EN.items():
+            if key.lower() in grade_text.lower():
+                return num
+        import re
+        match = re.search(r'(\d+)', grade_text)
+        if match:
+            return int(match.group(1))
+    return 0
+
 
 async def resolve_images(lesson: dict) -> dict:
     if not UNSPLASH_ACCESS_KEY:
@@ -228,6 +256,7 @@ async def get_lesson(req: LessonRequest):
     msgs = API_ERROR_MESSAGES[lang]
     grade, subject, topic, level, goals = session["grade"], session["subject"], session["topic"], session["level"], session.get("goals", "")
     curriculum = session.get("curriculum", "")
+    grade_number = _extract_grade_number(grade, lang)
 
     syllabus = json.loads(session["syllabus"]) if session["syllabus"] else {}
     modules = syllabus.get("modules", [])
@@ -264,8 +293,7 @@ async def get_lesson(req: LessonRequest):
         return cached
 
     try:
-        grade_number = _extract_grade_number(session["grade"])
-        lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang, curriculum, logger=log, module_description=module_description, learning_outcomes=learning_outcomes, grade_number=grade_number)
+        lesson = await generate_lesson(session["grade"], session["subject"], session["topic"], session["level"], req.module_title, session.get("goals", ""), lang, curriculum, logger=log, module_description=module_description, learning_outcomes=learning_outcomes)
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
@@ -389,21 +417,6 @@ def _sse_event(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-GRADE_NUMBERS = {
-    "الصف الأول": 1, "الصف الثاني": 2, "الصف الثالث": 3,
-    "الصف الرابع": 4, "الصف الخامس": 5, "الصف السادس": 6,
-    "الصف السابع": 7, "الصف الثامن": 8, "الصف التاسع": 9,
-    "الصف العاشر": 10, "الصف الحادي عشر": 11, "الصف الثاني عشر": 12,
-    "Grade 1": 1, "Grade 2": 2, "Grade 3": 3,
-    "Grade 4": 4, "Grade 5": 5, "Grade 6": 6,
-    "Grade 7": 7, "Grade 8": 8, "Grade 9": 9,
-    "Grade 10": 10, "Grade 11": 11, "Grade 12": 12,
-}
-
-
-def _extract_grade_number(grade: str) -> int:
-    return GRADE_NUMBERS.get(grade.strip(), 0)
-
 
 @app.post("/api/lessons/stream")
 async def stream_lesson(req: LessonRequest):
@@ -415,6 +428,7 @@ async def stream_lesson(req: LessonRequest):
     msgs = API_ERROR_MESSAGES[lang]
     grade, subject, topic, level, goals = session["grade"], session["subject"], session["topic"], session["level"], session.get("goals", "")
     curriculum = session.get("curriculum", "")
+    grade_number = _extract_grade_number(grade, lang)
 
     syllabus = json.loads(session["syllabus"]) if session["syllabus"] else {}
     modules = syllabus.get("modules", [])
