@@ -14,20 +14,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from openai import AsyncOpenAI
+from google import genai
 
-
-_openai_client = None
+_client = None
 
 
 def _get_client():
-    global _openai_client
-    if _openai_client is None:
-        _openai_client = AsyncOpenAI(
-            api_key=os.getenv("MISTRAL_API_KEY"),
-            base_url="https://api.mistral.ai/v1",
-        )
-    return _openai_client
+    global _client
+    if _client is None:
+        _client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    return _client
 
 
 def _repair_json(text: str) -> str:
@@ -92,7 +88,7 @@ def _repair_json(text: str) -> str:
         i += 1
     return ''.join(result)
 
-MODEL = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 config_planner = {"temperature": 0.4, "max_tokens": 4096}
 config_content = {"temperature": 0.7, "max_tokens": 8192}
@@ -605,17 +601,16 @@ AGENT_CONFIGS = {
 async def _run_agent(agent_key: str, prompt: str) -> str | None:
     instruction, cfg = AGENT_CONFIGS[agent_key]
     client = _get_client()
-    response = await client.chat.completions.create(
+    response = client.models.generate_content(
         model=MODEL,
-        messages=[
-            {"role": "system", "content": instruction},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=cfg["temperature"],
-        max_tokens=cfg["max_tokens"],
+        contents=prompt,
+        config=genai.types.GenerateContentConfig(
+            system_instruction=instruction,
+            temperature=cfg["temperature"],
+            max_output_tokens=cfg["max_tokens"],
+        ),
     )
-    text = response.choices[0].message.content
-    return text.strip() if text else None
+    return response.text.strip() if response.text else None
 
 
 def _normalize_arabic_json(text: str) -> str:
